@@ -216,6 +216,35 @@ class TestRepositoryObservationStore(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlinked pending"):
                 parse_observations.list_observations(store["root"])
 
+    def test_default_listing_rejects_symlinked_canonical_observation_root(self):
+        (self.project_root / ".superpowers").mkdir()
+        with tempfile.TemporaryDirectory() as external_directory:
+            external_root = Path(external_directory)
+            (external_root / "outside.md").write_text(
+                "---\nskill: outside\n---\nExternal legacy note."
+            )
+            local_root = self.project_root / ".superpowers" / "observations"
+            local_root.symlink_to(external_root, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "symlinked observations"):
+                parse_observations.list_observations(
+                    parse_observations.observation_root(self.project_root)
+                )
+
+    def test_default_listing_rejects_symlinked_canonical_pending_path(self):
+        local_root = self.project_root / ".superpowers" / "observations"
+        local_root.mkdir(parents=True)
+        with tempfile.TemporaryDirectory() as external_directory:
+            external_pending = Path(external_directory)
+            (external_pending / "outside.md").write_text(
+                "---\nskill: outside\n---\nExternal legacy note."
+            )
+            local_pending = local_root / "pending"
+            local_pending.symlink_to(external_pending, target_is_directory=True)
+
+            with self.assertRaisesRegex(ValueError, "symlinked pending"):
+                parse_observations.list_observations(local_pending)
+
     def test_repository_listing_rejects_symlinked_pending_note_escape(self):
         store = parse_observations.ensure_observation_store(self.project_root)
         with tempfile.TemporaryDirectory() as external_directory:

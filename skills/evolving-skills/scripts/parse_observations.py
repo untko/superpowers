@@ -189,16 +189,25 @@ def _repository_observation(path: Path) -> dict[str, object] | None:
     }
 
 
+def _has_repository_local_shape(directory: Path) -> bool:
+    """Recognize canonical local-store paths without inspecting their targets."""
+    root = directory.parent if directory.name == "pending" else directory
+    return root.name == "observations" and root.parent.name == ".superpowers"
+
+
 def list_observations(
     obs_directory: Path | str, *, repository_local: bool | None = None
 ) -> list[dict[str, object]]:
     """List legacy notes or valid v1 notes in a repository-local pending queue."""
     directory = Path(obs_directory)
     if repository_local is None:
-        repository_local = (directory / "pending").is_dir() or (
-            directory.name == "pending"
-            and (directory.parent / "proposed").is_dir()
-            and (directory.parent / "archived").is_dir()
+        repository_local = _has_repository_local_shape(directory) or (
+            (directory / "pending").is_dir()
+            or (
+                directory.name == "pending"
+                and (directory.parent / "proposed").is_dir()
+                and (directory.parent / "archived").is_dir()
+            )
         )
     if repository_local:
         source_directory = directory if directory.name == "pending" else directory / "pending"
