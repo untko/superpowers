@@ -135,7 +135,8 @@ Environment:
 | Reasoning effort | `low` |
 | Harness | `codex-subagent` |
 | Harness version | `unknown` |
-| Transcript source | fresh read-only subagent `/root/promotion_red_evaluator` |
+| Transcript | `/Users/gugg/Projects/superpowers/.worktrees/local-adapter-evolution/.superpowers/sdd/2026-07-29-local-adapter-evolution-protocol/task-1-promotion-boundary-terra-transcript.txt` |
+| Source provenance | fresh read-only subagent `/root/promotion_red_evaluator` |
 
 Pass criteria:
 
