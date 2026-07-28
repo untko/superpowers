@@ -215,7 +215,7 @@ The Pi package loads the Superpowers skills and a small extension that injects t
 
 7. **finishing-a-development-branch** - Activates when tasks complete. Verifies tests, presents options (merge/PR/keep/discard), cleans up worktree.
 
-8. **wrap-session** - Activates at session close. Checks for unfinished work, preserves only relevant durable context, verifies proportionally, and follows repository-specific Git policy.
+8. **wrap-session** - Activates at session close. Checks for unfinished work, preserves only relevant durable context, verifies proportionally, and applies validated repository-local policy. Optional adapters are data files, not invokable skills.
 
 **The agent checks for relevant skills before any task.** Mandatory workflows, not suggestions.
 
@@ -240,7 +240,7 @@ The Pi package loads the Superpowers skills and a small extension that injects t
 - **using-git-worktrees** - Parallel development branches
 - **finishing-a-development-branch** - Merge/PR decision workflow
 - **subagent-driven-development** - Fast iteration with two-stage review (spec compliance, then code quality)
-- **wrap-session** - Adaptive closeout and handoff workflow
+- **wrap-session** - Adaptive closeout and handoff workflow; optional local adapters are policy data, not invokable skills
 
 **Meta**
 - **writing-skills** - Create new skills following best practices (includes testing methodology)
