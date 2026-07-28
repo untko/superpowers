@@ -26,7 +26,8 @@ digraph slow_loop {
 ```
 
 ### 1. Harvest Observations
-Run `python3 scripts/parse_observations.py --list` to fetch pending fast-loop notes from `references/observations/`. Group observations by target skill.
+Run `python3 scripts/parse_observations.py --project-root "$PROJECT_ROOT" --list`
+to fetch pending repository-local notes. Group observations by target skill.
 
 When the user explicitly asks to evolve skills from another active repository,
 also inspect that repository's significant notes under
@@ -34,6 +35,11 @@ also inspect that repository's significant notes under
 closeout, and do not copy project-specific paths, names, secrets, or raw
 transcripts into the global library. Cross-repository edits require explicit
 user approval.
+
+Repositories only observe and propose. An explicit global evolution run alone
+may generalize, test, approve, and release a global change. Neither a local
+proposal nor a global release auto-writes another repository. See
+`references/local-adapter-protocol.md` for details.
 
 ### 2. Universal Abstraction Gate
 Convert raw observations into universal engineering patterns:

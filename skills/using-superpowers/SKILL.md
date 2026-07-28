@@ -54,10 +54,16 @@ These thoughts mean STOP—you're rationalizing:
 When executing any superpower skill, if you catch yourself using a new rationalization, hitting an ambiguous instruction, or encountering unexpected process friction:
 
 - **Do NOT block the user's task.** Continue executing the task cleanly.
-- **Write a fast-loop observation note** under `references/observations/` in `evolving-skills`:
-  `YYYY-MM-DD-HHmm-<skill>-failed-during-<phase>-for-<context_slug>.md`
-- Include: timestamp, skill name, phase/step, observed failure, verbatim rationalization, and proposed universal fix.
-- The slow-loop (`superpowers:evolving-skills`) will harvest, micro-test, and consolidate these notes later.
+- For significant, reusable friction, minimally sanitize an observation into
+  `.superpowers/observations/pending/` in the active repository. Initialize the
+  store with `python3 skills/evolving-skills/scripts/parse_observations.py
+  --project-root "$PROJECT_ROOT" --init` when needed.
+- Use the `superpowers-observation/v1` schema in
+  `evolving-skills/references/local-adapter-protocol.md`; report model and
+  harness provenance, using `unknown` when it is unavailable.
+- Ordinary runs do not edit global skills or scan history. A local note only
+  observes/proposes; an explicit global evolution run separately generalizes,
+  tests, approves, and releases any global change.
 
 
 ## Platform Adaptation
