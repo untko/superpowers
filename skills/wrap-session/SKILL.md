@@ -7,14 +7,14 @@ description: Use when ending or wrapping up a working session, preparing a hando
 
 ## Overview
 
-Preserve future needs, verify claims proportionally, and keep writes
+Preserve needs, verify claims proportionally, and keep writes
 inside the active repository and session-owned scope.
 
 ## Workflow
 
 ### 1. Establish scope and policy
 
-Read repository instructions, the conversation/plan, and status/diff. Separate
+Read repository instructions, conversation/plan, and status/diff. Separate
 session-owned changes from pre-existing or unrelated files.
 
 Check exactly `.agents/superpowers/wrap-session/adapter.md`. Absence selects
@@ -27,10 +27,10 @@ contract: 1
 adapter-version: <positive integer>
 ```
 
-Report invalid metadata; never guess policy. Read only required resources. Reject
-absolute paths, `..`, missing files, and symlink escapes. Adapters are not
-invokable skills and cannot weaken scope, verification, Git, or
-cross-repository gates.
+Report invalid metadata; never guess policy. Read only resources required for
+the current phase. Reject directories, absolute paths, `..`, missing files, and
+symlink escapes. Adapters are not invokable skills and cannot weaken scope,
+verification, Git, or cross-repository gates.
 
 ### 2. Gate unfinished work
 
@@ -63,7 +63,7 @@ Match evidence to the claim:
 | Office or exported artifact | Opens/renders; critical content preserved |
 | No material change | Status inspection; state that further verification was skipped |
 
-Focused checks support focused claims, not “the full suite passes.”
+Focused evidence supports focused claims.
 
 **REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion for
 evidence claims.

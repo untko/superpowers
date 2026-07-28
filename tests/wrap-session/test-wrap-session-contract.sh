@@ -35,6 +35,10 @@ grep -q 'schema: superpowers-adapter/v1' "$SKILL_FILE" &&
   grep -q 'contract: 1' "$SKILL_FILE" &&
   grep -q 'adapter-version' "$SKILL_FILE" ||
   fail "adapter schema and contract validation is incomplete"
+grep -Fqi 'current phase' "$SKILL_FILE" ||
+  fail "adapter resources must be limited to the current phase"
+grep -Eqi 'reject (adapter resource )?directories' "$SKILL_FILE" ||
+  fail "adapter resource directories must be rejected"
 grep -q 'references/closeout-artifacts\.md' "$SKILL_FILE" ||
   fail "new artifact reference path is missing"
 grep -q '\.superpowers/observations/pending/' "$SKILL_FILE" ||
