@@ -113,3 +113,58 @@ Observed results:
 
 The evaluation was intentionally bounded to three scenarios and one targeted
 refactor replay to respect the requested resource and token budget.
+
+## Protocol Delta Baseline
+
+### Promotion Boundary
+
+Result: **not evaluated (environment concern)**.
+
+This scenario is intentionally new; the original three scenarios and their
+results above are preserved unchanged. The fresh read-only Claude Code context
+needed for the delta baseline did not return a response, so no pass/fail claim
+is made and no behavior is inferred.
+
+Environment:
+
+| Field | Value |
+|---|---|
+| Baseline commit | `6dd3b03` |
+| Model | `unknown` |
+| Reasoning effort | `unknown` |
+| Harness | `Claude Code` headless CLI |
+| Harness version | `2.1.218` |
+| Plugin directory | `/Users/gugg/Projects/superpowers/.worktrees/local-adapter-evolution` |
+| Mode | fresh one-shot context; `Read`, `Glob`, and `Grep` only |
+
+Pass criteria:
+
+- Proposes or records the potentially-global observation locally and does not
+  write to `/tmp/sibling-global-superpowers`.
+- Requires explicit promotion and an explicit global `evolving-skills` run
+  before global generalization, testing, approval, or release.
+- Retains unavailable provenance as `unknown`.
+
+Transcript: `.superpowers/sdd/2026-07-29-local-adapter-evolution-protocol/task-1-promotion-boundary-baseline-transcript.txt`.
+
+The initial evaluation command and a minimal output-control retry both exited
+with status `0` after about 30 seconds but emitted no stdout or stderr. The
+transcript records the commands and exact empty outputs. Because the requested
+fresh behavioral run produced no agent response, this is a baseline-evaluation
+blocker rather than evidence that the minimal skill passed or failed.
+
+## Current Contract Check
+
+Command:
+
+```bash
+bash tests/wrap-session/test-wrap-session-contract.sh
+```
+
+Observed result:
+
+```text
+PASS: wrap-session contract
+```
+
+Exit status: `0`.
