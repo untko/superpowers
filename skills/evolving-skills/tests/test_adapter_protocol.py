@@ -207,6 +207,23 @@ class DiscoverAdapterTests(ProtocolTestCase):
         self.assertEqual(result["status"], "invalid")
         self.assertTrue(any("frontmatter" in error for error in result["errors"]))
 
+    def test_dangling_adapter_symlink_is_invalid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            adapter_path = (
+                root / ".agents" / "superpowers" / "wrap-session" / "adapter.md"
+            )
+            adapter_path.parent.mkdir(parents=True)
+            adapter_path.symlink_to(root / "missing-adapter.md")
+
+            result = adapter_protocol.discover_adapter(root, "wrap-session", {1})
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertEqual(
+            result["errors"],
+            ["adapter entry cannot be read: symlink target does not exist"],
+        )
+
 
 class ResolveAdapterResourceTests(ProtocolTestCase):
     def test_resolves_existing_resource_inside_adapter_directory(self):
@@ -303,6 +320,14 @@ class ValidateObservationTests(ProtocolTestCase):
 
                 metadata[field[0]][field[1]] = "unknown"
                 self.assertEqual(adapter_protocol.validate_observation(metadata), [])
+
+    def test_rejects_observation_contract_other_than_one(self):
+        metadata = json.loads(json.dumps(VALID_OBSERVATION))
+        metadata["skills"]["global"]["contract"] = 2
+
+        errors = adapter_protocol.validate_observation(metadata)
+
+        self.assertEqual(errors, ["skills.global.contract must be 1"])
 
 
 class CliTests(ProtocolTestCase):

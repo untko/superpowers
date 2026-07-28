@@ -137,12 +137,50 @@ def discover_adapter(
         / skill_name
         / "adapter.md"
     )
-    if not adapter_path.exists():
+    try:
+        adapter_path.lstat()
+    except FileNotFoundError:
         return {"status": "absent", "path": str(adapter_path)}
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter entry cannot be inspected: {error}"],
+        }
+
+    if adapter_path.is_symlink():
+        try:
+            adapter_path.stat()
+        except FileNotFoundError:
+            return {
+                "status": "invalid",
+                "path": str(adapter_path),
+                "errors": [
+                    "adapter entry cannot be read: symlink target does not exist"
+                ],
+            }
+        except OSError as error:
+            return {
+                "status": "invalid",
+                "path": str(adapter_path),
+                "errors": [f"adapter entry cannot be read: {error}"],
+            }
 
     try:
         metadata, body = parse_frontmatter(adapter_path.read_text())
-    except (OSError, UnicodeError, ValueError) as error:
+    except FileNotFoundError:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter entry cannot be read: entry disappeared"],
+        }
+    except (OSError, UnicodeError) as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter entry cannot be read: {error}"],
+        }
+    except ValueError as error:
         return {
             "status": "invalid",
             "path": str(adapter_path),
@@ -307,6 +345,8 @@ def validate_observation(metadata: dict[str, object]) -> list[str]:
             errors.append(f"{contract_path} is required")
         elif type(contract) is not int:
             errors.append(f"{contract_path} must be an integer")
+        elif contract != 1:
+            errors.append(f"{contract_path} must be 1")
 
     adapter_version_path = "skills.adapter.version"
     if not parent_is_invalid(adapter_version_path):
