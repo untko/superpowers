@@ -177,10 +177,9 @@ Exit status: `0`.
 
 ## Final Protocol Replay (Task 6)
 
-Status: **incomplete**. All four unchanged behavioral scenarios and the
-wrap-session/evolving-skills deterministic checks passed. Two required,
-harness-dependent integration commands did not pass in this linked worktree,
-so this document deliberately does not claim a complete evaluation.
+Status: **incomplete**. All four unchanged behavioral scenarios and local or
+package deterministic checks passed. External live-harness checks remain
+unpassed, so this document deliberately does not claim a complete evaluation.
 
 ### Evaluator Provenance
 
@@ -264,8 +263,8 @@ Result: **passed**.
 |---|---|
 | `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/evolving-skills/tests -p 'test_*.py' -v` | **PASS** — 33 tests passed. |
 | `bash tests/wrap-session/test-wrap-session-contract.sh` | **PASS** — `PASS: wrap-session contract`. |
-| `env TZ=UTC bash tests/codex/test-package-codex-plugin.sh` | **FAIL** (exit `9`) — package script rejected the linked worktree: `ERROR: repo root is not a git checkout: /Users/gugg/Projects/superpowers/.worktrees/local-adapter-evolution`. |
-| `bash tests/opencode/test-priority.sh` | **FAIL** (exit `1`) — OpenCode could not reach `models.dev`; its dependency install also failed with `bun is unable to write files to tempdir: PermissionDenied`. |
+| `env TZ=UTC bash tests/codex/test-package-codex-plugin.sh` | **PASS** (exit `0`) in ordinary checkout `/tmp/superpowers-package-check.caiAnF/repo` — all 29 archive checks passed. The same command is incompatible with the linked worktree: it exits `9` because that script rejects `/Users/gugg/Projects/superpowers/.worktrees/local-adapter-evolution` as not a Git checkout. |
+| `bash tests/opencode/test-priority.sh` | **UNPASSED** — the direct run exited `1` after OpenCode could not reach `models.dev` and Bun could not write its temporary dependency cache. Escalation was explicitly rejected because this live integration test would send repository skill contents/prompts to an external model or service without separate disclosure authorization. |
 | `git diff --check` | **PASS**. |
 
 ### Final Scope Audit
@@ -279,3 +278,12 @@ Result: **passed**.
   write, push, or PR.
 - Pre-existing untracked Python bytecode caches under
   `skills/evolving-skills/` were left untouched.
+
+### Remaining Live-Harness Limitations
+
+- The prior Claude explicit-trigger run remains unpassed: its initial runner
+  was incompatible with Claude's `--verbose` requirement, and the corrected
+  invocation could not reach the API; external-network escalation was denied.
+- OpenCode remains unpassed for the separate disclosure-authorization reason
+  recorded above. These are external live-harness criteria, not passing
+  deterministic checks.
