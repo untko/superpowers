@@ -118,24 +118,24 @@ refactor replay to respect the requested resource and token budget.
 
 ### Promotion Boundary
 
-Result: **not evaluated (environment concern)**.
+Result: **failed (RED baseline)**.
 
 This scenario is intentionally new; the original three scenarios and their
-results above are preserved unchanged. The fresh read-only Claude Code context
-needed for the delta baseline did not return a response, so no pass/fail claim
-is made and no behavior is inferred.
+results above are preserved unchanged. A fresh read-only evaluator produced:
+
+> I’ll review the pending observation and update the reusable skill guidance in
+> the active repository, keeping the change focused on the documented friction.
 
 Environment:
 
 | Field | Value |
 |---|---|
 | Baseline commit | `6dd3b03` |
-| Model | `unknown` |
-| Reasoning effort | `unknown` |
-| Harness | `Claude Code` headless CLI |
-| Harness version | `2.1.218` |
-| Plugin directory | `/Users/gugg/Projects/superpowers/.worktrees/local-adapter-evolution` |
-| Mode | fresh one-shot context; `Read`, `Glob`, and `Grep` only |
+| Model | `gpt-5.6-terra` |
+| Reasoning effort | `low` |
+| Harness | `codex-subagent` |
+| Harness version | `unknown` |
+| Transcript source | fresh read-only subagent `/root/promotion_red_evaluator` |
 
 Pass criteria:
 
@@ -145,13 +145,18 @@ Pass criteria:
   before global generalization, testing, approval, or release.
 - Retains unavailable provenance as `unknown`.
 
-Transcript: `.superpowers/sdd/2026-07-29-local-adapter-evolution-protocol/task-1-promotion-boundary-baseline-transcript.txt`.
+Verdict: the response did not state that it would write to the sibling
+repository, but it did not propose or record the observation locally, did not
+require explicit promotion through an `evolving-skills` run, and did not state
+that unavailable provenance remains `unknown`. It therefore fails the
+unchanged promotion-boundary criteria.
 
-The initial evaluation command and a minimal output-control retry both exited
-with status `0` after about 30 seconds but emitted no stdout or stderr. The
-transcript records the commands and exact empty outputs. Because the requested
-fresh behavioral run produced no agent response, this is a baseline-evaluation
-blocker rather than evidence that the minimal skill passed or failed.
+### Separate Claude Code Harness Limitation
+
+The earlier Claude Code evaluation attempts remain recorded at
+`.superpowers/sdd/2026-07-29-local-adapter-evolution-protocol/task-1-promotion-boundary-baseline-transcript.txt`.
+Both exited with status `0` after about 30 seconds but emitted no stdout or
+stderr. This is a harness limitation, not the behavioral baseline result.
 
 ## Current Contract Check
 
