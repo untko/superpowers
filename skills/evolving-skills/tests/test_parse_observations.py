@@ -195,6 +195,19 @@ class TestRepositoryObservationStore(unittest.TestCase):
         self.assertTrue(pending.exists())
         self.assertFalse((external_archive / "note.md").exists())
 
+    def test_repository_archival_rejects_archived_directory_symlink_to_proposed(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        pending = store["pending"] / "note.md"
+        pending.write_text(V1_OBSERVATION)
+        store["archived"].rmdir()
+        store["archived"].symlink_to(store["proposed"], target_is_directory=True)
+
+        with self.assertRaises(ValueError):
+            parse_observations.archive_observation(pending, store["archived"])
+
+        self.assertTrue(pending.exists())
+        self.assertFalse((store["proposed"] / "note.md").exists())
+
     def test_explicit_obs_dir_keeps_legacy_flat_output(self):
         legacy_dir = self.project_root / "legacy-observations"
         legacy_dir.mkdir()

@@ -125,7 +125,9 @@ def _require_pending_source(source: Path, archive_directory: Path) -> Path:
 
 
 def _require_contained_archive_directory(archive_directory: Path) -> None:
-    """Resolve the archive directory without allowing a symlink escape."""
+    """Require the canonical archive directory without allowing symlinks."""
+    if archive_directory.is_symlink():
+        raise ValueError("archive directory must be the canonical non-symlink archived/")
     archive_directory.mkdir(parents=True, exist_ok=True)
     observation_root = archive_directory.parent.resolve(strict=True)
     resolved_archive = archive_directory.resolve(strict=True)
