@@ -28,6 +28,13 @@ digraph slow_loop {
 ### 1. Harvest Observations
 Run `python3 scripts/parse_observations.py --list` to fetch pending fast-loop notes from `references/observations/`. Group observations by target skill.
 
+When the user explicitly asks to evolve skills from another active repository,
+also inspect that repository's significant notes under
+`.superpowers/observations/`. Do not harvest this directory during routine
+closeout, and do not copy project-specific paths, names, secrets, or raw
+transcripts into the global library. Cross-repository edits require explicit
+user approval.
+
 ### 2. Universal Abstraction Gate
 Convert raw observations into universal engineering patterns:
 - Isolate the general symptom and verbatim rationalization.
