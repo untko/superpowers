@@ -54,16 +54,16 @@ These thoughts mean STOP—you're rationalizing:
 When executing any superpower skill, if you catch yourself using a new rationalization, hitting an ambiguous instruction, or encountering unexpected process friction:
 
 - **Do NOT block the user's task.** Continue executing the task cleanly.
-- For significant, reusable friction, minimally sanitize an observation into
-  `.superpowers/observations/pending/` in the active repository. Initialize the
-  store with `python3 skills/evolving-skills/scripts/parse_observations.py
-  --project-root "$PROJECT_ROOT" --init` when needed.
-- Use the `superpowers-observation/v1` schema in
-  `evolving-skills/references/local-adapter-protocol.md`; report model and
-  harness provenance, using `unknown` when it is unavailable.
-- Ordinary runs do not edit global skills or scan history. A local note only
-  observes/proposes; an explicit global evolution run separately generalizes,
-  tests, approves, and releases any global change.
+- For significant reusable friction, write a sanitized observation to
+  `.superpowers/observations/pending/` in the active repository. Initialize
+  with `scripts/parse_observations.py` from the installed `superpowers:evolving-skills` skill,
+  resolved from that skill directory; pass the active project root with
+  `--project-root`.
+- Use `superpowers-observation/v1` from the reference shipped with that installed skill;
+  report model/harness provenance or `unknown`.
+- Ordinary runs neither edit global skills nor scan history. Local notes only
+  observe/propose; explicit global evolution separately generalizes, tests,
+  approves, and releases.
 
 
 ## Platform Adaptation

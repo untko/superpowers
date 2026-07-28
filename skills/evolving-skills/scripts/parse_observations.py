@@ -12,24 +12,135 @@ import sys
 from adapter_protocol import parse_frontmatter, validate_observation
 
 
+_LIFECYCLE_NAMES = ("pending", "proposed", "archived")
+
+
+def _resolve_project_root(project_root: Path) -> Path:
+    """Resolve and validate the active repository root."""
+    try:
+        resolved = Path(project_root).resolve(strict=True)
+    except OSError as error:
+        raise ValueError(f"project root cannot be resolved: {error}") from error
+    if not resolved.is_dir():
+        raise ValueError("project root must be a directory")
+    return resolved
+
+
+def _require_local_directory(
+    path: Path,
+    *,
+    label: str,
+    project_root: Path,
+    create: bool,
+) -> Path:
+    """Reject symlinks and require one directory beneath the project root."""
+    if path.is_symlink():
+        raise ValueError(f"repository observation store has symlinked {label}")
+    if create:
+        path.mkdir(exist_ok=True)
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError as error:
+        raise ValueError(f"{label} directory cannot be resolved: {error}") from error
+    if not resolved.is_dir():
+        raise ValueError(f"{label} must be a directory")
+    try:
+        resolved.relative_to(project_root)
+    except ValueError as error:
+        raise ValueError(f"{label} must remain beneath the project root") from error
+    return resolved
+
+
+def _repository_project_root(observation_directory: Path) -> Path:
+    """Infer the active root only from the canonical local-store shape."""
+    root = (
+        observation_directory.parent
+        if observation_directory.name == "pending"
+        else observation_directory
+    )
+    if root.name != "observations" or root.parent.name != ".superpowers":
+        raise ValueError(
+            "repository-local observations must use "
+            "<project>/.superpowers/observations/"
+        )
+    return _resolve_project_root(root.parent.parent)
+
+
+def _require_observation_store(
+    project_root: Path, *, create: bool
+) -> dict[str, Path]:
+    """Validate every repository-local store component without following links."""
+    resolved_project_root = _resolve_project_root(project_root)
+    superpowers = resolved_project_root / ".superpowers"
+    _require_local_directory(
+        superpowers,
+        label=".superpowers",
+        project_root=resolved_project_root,
+        create=create,
+    )
+    root = superpowers / "observations"
+    _require_local_directory(
+        root,
+        label="observations",
+        project_root=resolved_project_root,
+        create=create,
+    )
+    store = {"root": root}
+    for name in _LIFECYCLE_NAMES:
+        directory = root / name
+        _require_local_directory(
+            directory,
+            label=name,
+            project_root=resolved_project_root,
+            create=create,
+        )
+        store[name] = directory
+    return store
+
+
+def _observation_store_exists(project_root: Path) -> bool:
+    """Return false for a missing store while rejecting unsafe components."""
+    resolved_project_root = _resolve_project_root(project_root)
+    components = (
+        (".superpowers", resolved_project_root / ".superpowers"),
+        (
+            "observations",
+            resolved_project_root / ".superpowers" / "observations",
+        ),
+        *(
+            (
+                name,
+                resolved_project_root
+                / ".superpowers"
+                / "observations"
+                / name,
+            )
+            for name in _LIFECYCLE_NAMES
+        ),
+    )
+    for label, path in components:
+        if path.is_symlink():
+            raise ValueError(
+                f"repository observation store has symlinked {label}"
+            )
+        if not path.exists():
+            return False
+        if not path.is_dir():
+            raise ValueError(f"{label} must be a directory")
+    return True
+
+
 def observation_root(project_root: Path) -> Path:
     """Return the repository-local root for operational observations."""
-    return Path(project_root) / ".superpowers" / "observations"
+    return _resolve_project_root(project_root) / ".superpowers" / "observations"
 
 
 def ensure_observation_store(project_root: Path) -> dict[str, Path]:
     """Create the ignored lifecycle directories for one repository."""
-    root = observation_root(project_root)
-    store = {
-        "root": root,
-        "pending": root / "pending",
-        "proposed": root / "proposed",
-        "archived": root / "archived",
-    }
-    for directory in store.values():
-        directory.mkdir(parents=True, exist_ok=True)
-
-    ignore_file = root / ".gitignore"
+    store = _require_observation_store(project_root, create=True)
+    ignore_file = store["root"] / ".gitignore"
+    if ignore_file.is_symlink():
+        raise ValueError("repository observation store has symlinked .gitignore")
     if not ignore_file.exists():
         ignore_file.write_text("*\n", encoding="utf-8")
     return store
@@ -91,6 +202,11 @@ def list_observations(
         )
     if repository_local:
         source_directory = directory if directory.name == "pending" else directory / "pending"
+        project_root = _repository_project_root(source_directory)
+        if not _observation_store_exists(project_root):
+            return []
+        store = _require_observation_store(project_root, create=False)
+        source_directory = store["pending"]
     else:
         source_directory = directory
     if not source_directory.is_dir():
@@ -98,6 +214,11 @@ def list_observations(
 
     observations: list[dict[str, object]] = []
     for path in sorted(source_directory.iterdir()):
+        if repository_local and path.is_symlink():
+            sys.stderr.write(
+                f"Warning: Ignoring symlinked observation note {path.name}\n"
+            )
+            continue
         if path.suffix != ".md" or path.name == "README.md" or not path.is_file():
             continue
         try:
@@ -113,28 +234,16 @@ def list_observations(
     return observations
 
 
-def _require_pending_source(source: Path, archive_directory: Path) -> Path:
-    """Resolve a v1 source and reject paths outside its sibling pending queue."""
-    pending_directory = (archive_directory.parent / "pending").resolve(strict=True)
+def _require_pending_source(source: Path, pending_directory: Path) -> Path:
+    """Resolve a non-symlink v1 source inside the canonical pending queue."""
+    if source.is_symlink():
+        raise ValueError("observation source is a symlinked observation note")
     resolved_source = source.resolve(strict=True)
     try:
         resolved_source.relative_to(pending_directory)
     except ValueError as error:
         raise ValueError("observation source must resolve inside pending/") from error
     return resolved_source
-
-
-def _require_contained_archive_directory(archive_directory: Path) -> None:
-    """Require the canonical archive directory without allowing symlinks."""
-    if archive_directory.is_symlink():
-        raise ValueError("archive directory must be the canonical non-symlink archived/")
-    archive_directory.mkdir(parents=True, exist_ok=True)
-    observation_root = archive_directory.parent.resolve(strict=True)
-    resolved_archive = archive_directory.resolve(strict=True)
-    try:
-        resolved_archive.relative_to(observation_root)
-    except ValueError as error:
-        raise ValueError("archive directory must resolve inside observation store") from error
 
 
 def archive_observation(filepath: Path | str, archive_directory: Path | str) -> str:
@@ -147,8 +256,12 @@ def archive_observation(filepath: Path | str, archive_directory: Path | str) -> 
     archive_path = Path(archive_directory)
     source = Path(filepath)
     if archive_path.name == "archived":
-        source = _require_pending_source(source, archive_path)
-        _require_contained_archive_directory(archive_path)
+        project_root = _repository_project_root(archive_path.parent)
+        store = _require_observation_store(project_root, create=False)
+        if archive_path.resolve(strict=False) != store["archived"]:
+            raise ValueError("archive directory must be the canonical archived/")
+        source = _require_pending_source(source, store["pending"])
+        archive_path = store["archived"]
     else:
         archive_path.mkdir(parents=True, exist_ok=True)
     target = archive_path / source.name

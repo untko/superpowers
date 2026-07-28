@@ -14,6 +14,7 @@ ADAPTER_SCHEMA = "superpowers-adapter/v1"
 OBSERVATION_SCHEMA = "superpowers-observation/v1"
 _KEY = re.compile(r"[A-Za-z0-9_-]+")
 _INTEGER = re.compile(r"-?[0-9]+")
+_SKILL_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 def _parse_scalar(value: str, line_number: int) -> object:
@@ -124,19 +125,74 @@ def discover_adapter(
     supported_contracts: set[int],
 ) -> dict[str, object]:
     """Discover and validate one adapter at the protocol's exact location."""
-    if not skill_name or Path(skill_name).name != skill_name:
+    if not _SKILL_NAME.fullmatch(skill_name):
         return {
             "status": "invalid",
-            "errors": ["skill name must be one path segment"],
+            "errors": [
+                "skill name must match [a-z0-9]+(?:-[a-z0-9]+)*"
+            ],
         }
 
-    adapter_path = (
-        Path(project_root)
-        / ".agents"
-        / "superpowers"
-        / skill_name
-        / "adapter.md"
+    try:
+        resolved_project_root = Path(project_root).resolve(strict=True)
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "errors": [f"project root cannot be resolved: {error}"],
+        }
+    if not resolved_project_root.is_dir():
+        return {
+            "status": "invalid",
+            "errors": ["project root must be a directory"],
+        }
+
+    adapter_directory = (
+        Path(project_root) / ".agents" / "superpowers" / skill_name
     )
+    adapter_path = (
+        adapter_directory / "adapter.md"
+    )
+    try:
+        resolved_adapter_directory = adapter_directory.resolve(strict=False)
+        resolved_adapter_directory.relative_to(resolved_project_root)
+    except ValueError:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter directory resolves outside project root"],
+        }
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter directory cannot be resolved: {error}"],
+        }
+
+    try:
+        adapter_directory.lstat()
+    except FileNotFoundError:
+        return {"status": "absent", "path": str(adapter_path)}
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter directory cannot be inspected: {error}"],
+        }
+    try:
+        resolved_adapter_directory = adapter_directory.resolve(strict=True)
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter directory cannot be resolved: {error}"],
+        }
+    if not resolved_adapter_directory.is_dir():
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter directory must be a directory"],
+        }
+
     try:
         adapter_path.lstat()
     except FileNotFoundError:
@@ -148,23 +204,44 @@ def discover_adapter(
             "errors": [f"adapter entry cannot be inspected: {error}"],
         }
 
-    if adapter_path.is_symlink():
-        try:
-            adapter_path.stat()
-        except FileNotFoundError:
-            return {
-                "status": "invalid",
-                "path": str(adapter_path),
-                "errors": [
-                    "adapter entry cannot be read: symlink target does not exist"
-                ],
-            }
-        except OSError as error:
-            return {
-                "status": "invalid",
-                "path": str(adapter_path),
-                "errors": [f"adapter entry cannot be read: {error}"],
-            }
+    try:
+        resolved_adapter_path = adapter_path.resolve(strict=True)
+    except FileNotFoundError:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [
+                "adapter entry cannot be read: symlink target does not exist"
+            ],
+        }
+    except OSError as error:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": [f"adapter entry cannot be read: {error}"],
+        }
+    try:
+        resolved_adapter_path.relative_to(resolved_adapter_directory)
+    except ValueError:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter entry resolves outside adapter directory"],
+        }
+    try:
+        resolved_adapter_path.relative_to(resolved_project_root)
+    except ValueError:
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter entry resolves outside project root"],
+        }
+    if not resolved_adapter_path.is_file():
+        return {
+            "status": "invalid",
+            "path": str(adapter_path),
+            "errors": ["adapter entry must be a file"],
+        }
 
     try:
         metadata, body = parse_frontmatter(adapter_path.read_text())

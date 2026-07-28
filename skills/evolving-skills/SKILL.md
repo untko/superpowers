@@ -5,13 +5,15 @@ description: Use when distilling raw observation notes, evolving superpowers ski
 
 # Evolving Skills
 
-Maintain the `superpowers` skill pack as versioned procedural memory. Evolve general engineering patterns from raw observation notes using Graph Engineering principles (paired counter-metrics, frozen anchors, and independent audit loops).
+Maintain `superpowers` as versioned procedural memory. Distill general patterns
+from observations with paired counter-metrics, frozen anchors, and independent
+audit loops.
 
 ## Core Principles
 
-1. **Strict Universal Abstraction**: Skills are general engineering patterns. Strip all project-specific names, paths, and repositories during distillation.
+1. **Strict Universal Abstraction**: Strip project-specific names, paths, and repositories during distillation.
 2. **Frozen Anchors**: Core Iron Laws (*"No skill without a failing test"*, *"Never violate path boundaries"*) CANNOT be edited or weakened.
-3. **Tiered Progressive Disclosure**: `SKILL.md` stays ultra-lean (< 500 words). Niche errors, rare edge cases, and heavy reference guides belong in nested `references/` directories.
+3. **Tiered Progressive Disclosure**: `SKILL.md` stays below 500 words. Put niche guidance in `references/`.
 
 ## Workflow
 
@@ -26,8 +28,10 @@ digraph slow_loop {
 ```
 
 ### 1. Harvest Observations
-Run `python3 scripts/parse_observations.py --project-root "$PROJECT_ROOT" --list`
-to fetch pending repository-local notes. Group observations by target skill.
+Let `SKILL_DIR` mean the directory containing this loaded `evolving-skills/SKILL.md`,
+and `PROJECT_ROOT` the active project root. Run
+`python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --list`
+to fetch pending local notes. Group them by target skill.
 
 When the user explicitly asks to evolve skills from another active repository,
 also inspect that repository's significant notes under
@@ -38,8 +42,8 @@ user approval.
 
 Repositories only observe and propose. An explicit global evolution run alone
 may generalize, test, approve, and release a global change. Neither a local
-proposal nor a global release auto-writes another repository. See
-`references/local-adapter-protocol.md` for details.
+proposal nor a global release auto-writes another repository. Read the protocol
+reference shipped in this installed skill's `references/` directory.
 
 ### 2. Universal Abstraction Gate
 Convert raw observations into universal engineering patterns:
@@ -59,7 +63,7 @@ Convert raw observations into universal engineering patterns:
 - **Token Budget Check**: Ensure `SKILL.md` word count remains < 500.
 - **Frozen Anchor Check**: Ensure no core safety rule was weakened.
 - Present candidate diff to user. Upon approval, apply edit and archive note:
-  `python3 scripts/parse_observations.py --archive <filepath>`
+  `python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --archive <filepath>`
 
 ## Red Flags
 

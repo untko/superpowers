@@ -14,6 +14,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../s
 import parse_observations
 
 
+EVOLVING_SKILL_DIR = Path(__file__).resolve().parents[1]
+SKILLS_DIR = EVOLVING_SKILL_DIR.parent
+
+
 V1_OBSERVATION = """---
 schema: superpowers-observation/v1
 runtime:
@@ -104,16 +108,61 @@ class TestRepositoryObservationStore(unittest.TestCase):
     def test_observation_root_is_repository_local(self):
         self.assertEqual(
             parse_observations.observation_root(self.project_root),
-            self.project_root / ".superpowers" / "observations",
+            self.project_root.resolve() / ".superpowers" / "observations",
         )
 
     def test_ensure_observation_store_creates_lifecycle_directories_and_ignore(self):
         store = parse_observations.ensure_observation_store(self.project_root)
 
-        self.assertEqual(store["root"], self.project_root / ".superpowers" / "observations")
+        self.assertEqual(
+            store["root"],
+            self.project_root.resolve() / ".superpowers" / "observations",
+        )
         for name in ("pending", "proposed", "archived"):
             self.assertTrue(store[name].is_dir())
         self.assertEqual((store["root"] / ".gitignore").read_text(), "*\n")
+
+    def test_ensure_observation_store_rejects_symlinked_superpowers_directory(self):
+        with tempfile.TemporaryDirectory() as external_directory:
+            (self.project_root / ".superpowers").symlink_to(
+                external_directory, target_is_directory=True
+            )
+
+            with self.assertRaisesRegex(ValueError, "symlinked .superpowers"):
+                parse_observations.ensure_observation_store(self.project_root)
+
+            self.assertFalse(
+                (Path(external_directory) / "observations").exists()
+            )
+
+    def test_ensure_observation_store_rejects_symlinked_observation_root(self):
+        with tempfile.TemporaryDirectory() as external_directory:
+            (self.project_root / ".superpowers").mkdir()
+            (self.project_root / ".superpowers" / "observations").symlink_to(
+                external_directory, target_is_directory=True
+            )
+
+            with self.assertRaisesRegex(ValueError, "symlinked observations"):
+                parse_observations.ensure_observation_store(self.project_root)
+
+            self.assertFalse((Path(external_directory) / "pending").exists())
+
+    def test_ensure_observation_store_rejects_symlinked_lifecycle_directories(self):
+        for lifecycle_name in ("pending", "proposed", "archived"):
+            with self.subTest(lifecycle_name=lifecycle_name):
+                with tempfile.TemporaryDirectory() as project_directory:
+                    project_root = Path(project_directory)
+                    store = parse_observations.ensure_observation_store(project_root)
+                    store[lifecycle_name].rmdir()
+                    with tempfile.TemporaryDirectory() as external_directory:
+                        store[lifecycle_name].symlink_to(
+                            external_directory, target_is_directory=True
+                        )
+
+                        with self.assertRaisesRegex(
+                            ValueError, f"symlinked {lifecycle_name}"
+                        ):
+                            parse_observations.ensure_observation_store(project_root)
 
     def test_cli_defaults_project_root_to_current_directory(self):
         output = StringIO()
@@ -123,6 +172,14 @@ class TestRepositoryObservationStore(unittest.TestCase):
 
         created = json.loads(output.getvalue())
         self.assertEqual(created["root"], str(parse_observations.observation_root(self.project_root)))
+
+    def test_repository_listing_without_initialized_store_is_empty(self):
+        observations = parse_observations.list_observations(
+            parse_observations.observation_root(self.project_root),
+            repository_local=True,
+        )
+
+        self.assertEqual(observations, [])
 
     def test_repository_listing_reads_only_valid_pending_v1_observations(self):
         store = parse_observations.ensure_observation_store(self.project_root)
@@ -145,6 +202,33 @@ class TestRepositoryObservationStore(unittest.TestCase):
         with redirect_stderr(StringIO()):
             direct_pending = parse_observations.list_observations(store["pending"])
         self.assertEqual([item["filename"] for item in direct_pending], ["pending.md"])
+
+    def test_repository_listing_rejects_symlinked_pending_directory_escape(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        store["pending"].rmdir()
+        with tempfile.TemporaryDirectory() as external_directory:
+            external_pending = Path(external_directory)
+            (external_pending / "outside.md").write_text(V1_OBSERVATION)
+            store["pending"].symlink_to(
+                external_pending, target_is_directory=True
+            )
+
+            with self.assertRaisesRegex(ValueError, "symlinked pending"):
+                parse_observations.list_observations(store["root"])
+
+    def test_repository_listing_rejects_symlinked_pending_note_escape(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        with tempfile.TemporaryDirectory() as external_directory:
+            external_note = Path(external_directory) / "outside.md"
+            external_note.write_text(V1_OBSERVATION)
+            (store["pending"] / "outside.md").symlink_to(external_note)
+            errors = StringIO()
+
+            with redirect_stderr(errors):
+                observations = parse_observations.list_observations(store["root"])
+
+        self.assertEqual(observations, [])
+        self.assertIn("symlinked observation note", errors.getvalue())
 
     def test_repository_archival_moves_pending_note_to_archived(self):
         store = parse_observations.ensure_observation_store(self.project_root)
@@ -179,6 +263,22 @@ class TestRepositoryObservationStore(unittest.TestCase):
             parse_observations.archive_observation(proposal, store["archived"])
 
         self.assertTrue(proposal.exists())
+
+    def test_repository_archival_rejects_symlinked_pending_note_escape(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        with tempfile.TemporaryDirectory() as external_directory:
+            external_note = Path(external_directory) / "outside.md"
+            external_note.write_text(V1_OBSERVATION)
+            pending_link = store["pending"] / "outside.md"
+            pending_link.symlink_to(external_note)
+
+            with self.assertRaisesRegex(ValueError, "symlinked observation note"):
+                parse_observations.archive_observation(
+                    pending_link, store["archived"]
+                )
+
+            self.assertTrue(external_note.exists())
+            self.assertFalse((store["archived"] / "outside.md").exists())
 
     def test_repository_archival_rejects_archived_directory_symlink_escape(self):
         store = parse_observations.ensure_observation_store(self.project_root)
@@ -224,6 +324,50 @@ class TestRepositoryObservationStore(unittest.TestCase):
         self.assertEqual(observations[0]["phase"], "closeout")
         self.assertEqual(observations[0]["frontmatter"]["timestamp"], "2026-07-29")
         self.assertNotIn("runtime", observations[0])
+
+
+class TestInstalledSkillPortabilityContract(unittest.TestCase):
+    def test_commands_resolve_installed_helpers_outside_the_active_project(self):
+        evolving_skill = (EVOLVING_SKILL_DIR / "SKILL.md").read_text()
+        using_skill = (SKILLS_DIR / "using-superpowers" / "SKILL.md").read_text()
+        protocol_reference = (
+            EVOLVING_SKILL_DIR / "references" / "local-adapter-protocol.md"
+        ).read_text()
+        combined = "\n".join((evolving_skill, using_skill, protocol_reference))
+
+        self.assertIn(
+            "directory containing this loaded `evolving-skills/SKILL.md`",
+            evolving_skill,
+        )
+        self.assertGreaterEqual(
+            evolving_skill.count(
+                'python3 "$SKILL_DIR/scripts/parse_observations.py"'
+            ),
+            2,
+        )
+        self.assertIn('--project-root "$PROJECT_ROOT" --list', evolving_skill)
+        self.assertIn('--project-root "$PROJECT_ROOT" --archive', evolving_skill)
+        self.assertIn("installed `superpowers:evolving-skills` skill", using_skill)
+        self.assertIn(
+            "reference shipped with that installed skill",
+            using_skill,
+        )
+        self.assertNotIn("$PROJECT_ROOT/skills/evolving-skills", combined)
+        self.assertNotIn("python3 skills/evolving-skills/scripts", combined)
+
+    def test_protocol_reference_has_standard_frontmatter(self):
+        protocol_reference = (
+            EVOLVING_SKILL_DIR / "references" / "local-adapter-protocol.md"
+        ).read_text()
+
+        self.assertTrue(
+            protocol_reference.startswith(
+                "---\n"
+                "title: Local Adapter and Skill Evolution Protocol\n"
+                "---\n"
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

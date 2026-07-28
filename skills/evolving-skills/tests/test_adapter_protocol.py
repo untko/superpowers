@@ -151,6 +151,35 @@ class DiscoverAdapterTests(ProtocolTestCase):
         self.assertEqual(result["status"], "absent")
         self.assertNotIn("errors", result)
 
+    def test_invalid_skill_names_never_fall_back_to_absent(self):
+        invalid_names = (
+            "",
+            ".",
+            "..",
+            "Wrap-Session",
+            "wrap_session",
+            "wrap/session",
+            "/wrap-session",
+            "wrap--session",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for skill_name in invalid_names:
+                with self.subTest(skill_name=skill_name):
+                    result = adapter_protocol.discover_adapter(
+                        Path(directory), skill_name, {1}
+                    )
+
+                    self.assertEqual(
+                        result,
+                        {
+                            "status": "invalid",
+                            "errors": [
+                                "skill name must match "
+                                "[a-z0-9]+(?:-[a-z0-9]+)*"
+                            ],
+                        },
+                    )
+
     def test_valid_adapter_is_discovered_at_exact_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -222,6 +251,50 @@ class DiscoverAdapterTests(ProtocolTestCase):
         self.assertEqual(
             result["errors"],
             ["adapter entry cannot be read: symlink target does not exist"],
+        )
+
+    def test_adapter_file_symlink_escape_is_invalid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            adapter_path = (
+                root / ".agents" / "superpowers" / "wrap-session" / "adapter.md"
+            )
+            adapter_path.parent.mkdir(parents=True)
+            with tempfile.TemporaryDirectory() as external_directory:
+                external_adapter = Path(external_directory) / "adapter.md"
+                external_adapter.write_text(VALID_ADAPTER)
+                adapter_path.symlink_to(external_adapter)
+
+                result = adapter_protocol.discover_adapter(
+                    root, "wrap-session", {1}
+                )
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertEqual(
+            result["errors"],
+            ["adapter entry resolves outside adapter directory"],
+        )
+
+    def test_adapter_directory_symlink_escape_is_invalid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            adapters_root = root / ".agents" / "superpowers"
+            adapters_root.mkdir(parents=True)
+            with tempfile.TemporaryDirectory() as external_directory:
+                external_adapter_directory = Path(external_directory)
+                (external_adapter_directory / "adapter.md").write_text(VALID_ADAPTER)
+                (adapters_root / "wrap-session").symlink_to(
+                    external_adapter_directory, target_is_directory=True
+                )
+
+                result = adapter_protocol.discover_adapter(
+                    root, "wrap-session", {1}
+                )
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertEqual(
+            result["errors"],
+            ["adapter directory resolves outside project root"],
         )
 
 

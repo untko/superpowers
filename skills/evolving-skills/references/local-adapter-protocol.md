@@ -1,3 +1,7 @@
+---
+title: Local Adapter and Skill Evolution Protocol
+---
+
 # Local Adapter and Observation Protocol
 
 Repository-local adapters and observations let a project report useful
@@ -13,9 +17,12 @@ Each project owns `.agents/superpowers/<skill>/adapter.md` and
 review, and `archived/` for processed evidence. Initialize it with:
 
 ```sh
-python3 skills/evolving-skills/scripts/parse_observations.py \
+python3 "$SKILL_DIR/scripts/parse_observations.py" \
   --project-root "$PROJECT_ROOT" --init
 ```
+
+Here `SKILL_DIR` means the directory containing the loaded, installed
+`evolving-skills/SKILL.md`; `PROJECT_ROOT` means the active project root.
 
 Local repositories may observe and propose. Only an explicit global evolution
 run may generalize an observation, run the global tests, obtain approval, and
@@ -39,17 +46,19 @@ adapter-version: 1
 ---
 ```
 
-Discover it with `adapter_protocol.py discover "$PROJECT_ROOT" <skill-name>
---supported-contract 1`. An absent adapter selects global defaults; invalid
-frontmatter is an error, not a fallback. Adapter resources must be relative
-files within the adapter directory: absolute paths, `..`, missing files,
-directories, and symlinks resolving outside it are rejected.
+Discover it with `python3 "$SKILL_DIR/scripts/adapter_protocol.py" discover
+"$PROJECT_ROOT" <skill-name> --supported-contract 1`. An absent adapter selects
+global defaults; invalid frontmatter is an error, not a fallback. Adapter
+resources must be relative files within the adapter directory: absolute paths,
+`..`, missing files, directories, and symlinks resolving outside it are
+rejected.
 
 ## Observation contract
 
 Write minimally sanitized, durable evidence in `pending/*.md`. Do not include
 secrets, project paths, raw transcripts, or identifying customer data. Validate
-before promotion with `adapter_protocol.py validate-observation <note>`.
+before promotion with `python3 "$SKILL_DIR/scripts/adapter_protocol.py"
+validate-observation <note>`.
 
 ```yaml
 ---
