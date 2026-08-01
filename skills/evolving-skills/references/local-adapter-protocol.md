@@ -76,6 +76,7 @@ skills:
     contract: 1
     plugin-version: unknown
     git-commit: unknown
+    dirty: false
   adapter:
     path: unknown
     version: unknown
@@ -94,7 +95,16 @@ candidate:
 Concise, sanitized body with the relevant context and proposed universal rule.
 ```
 
-All listed fields are required. `skills.global.contract` is integer `1`;
+Write notes with `python3 "$SKILL_DIR/scripts/new_observation.py"
+--project-root "$PROJECT_ROOT" --skill <name> --phase <phase> --expected <text>
+--actual <text> --evidence <text>`, which derives provenance and refuses to
+write frontmatter that does not validate. Add `--archive-now` for a note that
+needs no follow-up; it still moves through the guarded `pending/` queue.
+
+All listed fields are required except `skills.global.dirty`, which is optional
+and reports whether the working tree was dirty at the commit named above — a
+commit alone misleads when the tree is not clean. It stays absent when the
+state could not be determined. `skills.global.contract` is integer `1`;
 `skills.adapter.version` is a positive integer or non-empty string. Use
 `unknown` when provenance is unavailable. Allowed enums are:
 
@@ -109,6 +119,30 @@ proposal fields intact while it moves from `observed` in `pending/`, through
 local review in `proposed/`, to `archived/` after an explicit decision. Archive
 only a file resolved inside the sibling `pending/`; no move may overwrite an
 existing archive entry.
+
+## Schema evolution
+
+A note is validated against the schema version its own `schema:` field
+declares, not against the newest one. Validation classifies each note as
+`current`, `outdated` (valid under a registered older version),
+`unknown-schema` (an unregistered version, almost always a note written by a
+newer plugin than this checkout can validate), or `invalid`.
+
+Within a version, **only optional fields may be added**. Adding, removing, or
+retyping a required field requires a new version string and a registered
+validator for the old one, so existing evidence keeps validating instead of
+vanishing from every harvest. `--list` returns `current` and `outdated` notes
+alike, tagging each with `schema_status`.
+
+`--tidy` reports four buckets — `kept`, `outdated`, `unknown_schema`, and
+`quarantined` — and moves only `invalid` notes, into `quarantine/`. Outdated
+and unknown-schema notes stay in `pending/`: both are readable evidence, and
+quarantining them would cause the corpus loss this classification exists to
+prevent. Quarantine is reversible — repair the note and move it back.
+
+Convert a pre-v1 note with `--migrate-legacy`; provenance the old format never
+recorded stays `unknown`, and a note that cannot be converted into a valid
+one raises rather than being written.
 
 ## Failure handling and adoption
 

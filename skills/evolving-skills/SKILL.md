@@ -30,20 +30,21 @@ digraph slow_loop {
 ### 1. Harvest Observations
 Let `SKILL_DIR` mean the directory containing this loaded `evolving-skills/SKILL.md`,
 and `PROJECT_ROOT` the active project root. Run
+`python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --tidy`
+to quarantine unreadable notes, then
 `python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --list`
-to fetch pending local notes. Group them by target skill.
+to fetch the pending queue. Group them by target skill.
 
-When the user explicitly asks to evolve skills from another active repository,
-also inspect that repository's significant notes under
-`.superpowers/observations/`. Do not harvest this directory during routine
-closeout, and do not copy project-specific paths, names, secrets, or raw
+When the user explicitly asks to evolve skills from another repository, also
+inspect its notes under `.superpowers/observations/`. Never harvest it during
+routine closeout, and never copy project-specific paths, names, secrets, or raw
 transcripts into the global library. Cross-repository edits require explicit
 user approval.
 
-Repositories only observe and propose. An explicit global evolution run alone
-may generalize, test, approve, and release a global change. Neither a local
-proposal nor a global release auto-writes another repository. Read the protocol
-reference shipped in this installed skill's `references/` directory.
+Repositories only observe and propose; only an explicit global evolution run
+may generalize, test, approve, and release a global change. Neither direction
+auto-writes the other repository. Read the protocol reference in this installed
+skill's `references/` directory.
 
 ### 2. Universal Abstraction Gate
 Convert raw observations into universal engineering patterns:
