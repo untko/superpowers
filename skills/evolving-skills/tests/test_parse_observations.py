@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 # Add scripts folder to sys.path for importing parse_observations
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts")))
+import adapter_protocol
 import parse_observations
 
 
@@ -50,6 +51,48 @@ candidate:
 ---
 Observation body.
 """
+
+_VALID_NOTE_FRONTMATTER = """---
+schema: superpowers-observation/v1
+runtime:
+  provider: openai
+  model: gpt-5.6-sol
+  reasoning-effort: high
+  harness: codex-app
+  harness-version: unknown
+  interface: desktop
+skills:
+  global:
+    name: evolving-skills
+    contract: 1
+    plugin-version: unknown
+    git-commit: unknown
+  adapter:
+    path: unknown
+    version: unknown
+    git-commit: unknown
+observation:
+  phase: verification
+  expected: Evidence is recorded without changing global skills.
+  actual: A reusable friction pattern required an explicit local note.
+  evidence: Sanitized command result and concise symptom.
+  diagnosis: uncertain
+candidate:
+  scope: potentially-global
+  target: reference
+  status: observed
+---
+"""
+
+
+def _write_valid_note(pending: Path, name: str) -> Path:
+    """Write one valid current-schema note into pending/ for tidy tests."""
+    path = pending / name
+    path.write_text(
+        _VALID_NOTE_FRONTMATTER + "Concise, sanitized body.\n", encoding="utf-8"
+    )
+    return path
+
 
 class TestParseObservations(unittest.TestCase):
     def setUp(self):
@@ -353,6 +396,87 @@ class TestRepositoryObservationStore(unittest.TestCase):
         self.assertEqual(observations[0]["phase"], "closeout")
         self.assertEqual(observations[0]["frontmatter"]["timestamp"], "2026-07-29")
         self.assertNotIn("runtime", observations[0])
+
+
+class TestTidyObservations(unittest.TestCase):
+    def test_tidy_keeps_valid_notes_in_pending(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            _write_valid_note(store["pending"], "keep.md")
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["kept"], ["keep.md"])
+            self.assertEqual(report["quarantined"], [])
+            self.assertTrue((store["pending"] / "keep.md").is_file())
+
+    def test_tidy_quarantines_malformed_notes(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            (store["pending"] / "broken.md").write_text(
+                "---\nschema: superpowers-observation/v1\n---\nno fields\n",
+                encoding="utf-8",
+            )
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["quarantined"], ["broken.md"])
+            self.assertFalse((store["pending"] / "broken.md").exists())
+            quarantine = Path(root) / ".superpowers" / "observations" / "quarantine"
+            self.assertTrue((quarantine / "broken.md").is_file())
+
+    def test_tidy_quarantines_unparseable_notes(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            (store["pending"] / "garbage.md").write_text(
+                "not frontmatter at all\n", encoding="utf-8"
+            )
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["quarantined"], ["garbage.md"])
+
+    def test_tidy_reports_outdated_without_moving_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            _write_valid_note(store["pending"], "old.md")
+            text = (store["pending"] / "old.md").read_text(encoding="utf-8")
+            (store["pending"] / "old.md").write_text(
+                text.replace(
+                    "superpowers-observation/v1", "superpowers-observation/v0-test"
+                ),
+                encoding="utf-8",
+            )
+            adapter_protocol.OBSERVATION_VALIDATORS[
+                "superpowers-observation/v0-test"
+            ] = lambda _metadata: []
+            self.addCleanup(
+                adapter_protocol.OBSERVATION_VALIDATORS.pop,
+                "superpowers-observation/v0-test",
+                None,
+            )
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["outdated"], ["old.md"])
+            self.assertEqual(report["quarantined"], [])
+            self.assertTrue((store["pending"] / "old.md").is_file())
+
+    def test_tidy_ignores_symlinked_notes(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            target = Path(root) / "outside.md"
+            target.write_text("---\nschema: x\n---\n", encoding="utf-8")
+            (store["pending"] / "link.md").symlink_to(target)
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["quarantined"], [])
+            self.assertTrue((store["pending"] / "link.md").is_symlink())
+
+    def test_tidy_does_not_overwrite_an_existing_quarantine_entry(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            quarantine = parse_observations.quarantine_directory(Path(root))
+            (quarantine / "broken.md").write_text("first\n", encoding="utf-8")
+            (store["pending"] / "broken.md").write_text(
+                "not frontmatter\n", encoding="utf-8"
+            )
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["quarantined"], [])
+            self.assertEqual(
+                (quarantine / "broken.md").read_text(encoding="utf-8"), "first\n"
+            )
 
 
 class TestInstalledSkillPortabilityContract(unittest.TestCase):

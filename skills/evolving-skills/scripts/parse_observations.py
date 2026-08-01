@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 import sys
 
-from adapter_protocol import parse_frontmatter, validate_observation
+from adapter_protocol import classify_observation, parse_frontmatter, validate_observation
 
 
 _LIFECYCLE_NAMES = ("pending", "proposed", "archived")
@@ -144,6 +144,52 @@ def ensure_observation_store(project_root: Path) -> dict[str, Path]:
     if not ignore_file.exists():
         ignore_file.write_text("*\n", encoding="utf-8")
     return store
+
+
+def quarantine_directory(project_root: Path) -> Path:
+    """Resolve and create the on-demand quarantine directory for one repository."""
+    resolved_project_root = _resolve_project_root(project_root)
+    store = _require_observation_store(resolved_project_root, create=False)
+    return _require_local_directory(
+        store["root"] / "quarantine",
+        label="quarantine",
+        project_root=resolved_project_root,
+        create=True,
+    )
+
+
+def tidy_observations(project_root: Path) -> dict[str, object]:
+    """Sweep the pending queue, quarantining notes no harvest can ever read."""
+    store = _require_observation_store(_resolve_project_root(project_root), create=False)
+    report: dict[str, object] = {"kept": [], "outdated": [], "quarantined": []}
+    quarantine: Path | None = None
+    for path in sorted(store["pending"].iterdir()):
+        if path.is_symlink() or path.suffix != ".md" or path.name == "README.md":
+            continue
+        if not path.is_file():
+            continue
+        try:
+            frontmatter, _body = parse_frontmatter(path.read_text(encoding="utf-8"))
+            status, _errors = classify_observation(frontmatter)
+        except (OSError, UnicodeError, ValueError):
+            status = "invalid"
+        if status == "current":
+            report["kept"].append(path.name)
+            continue
+        if status == "outdated":
+            report["outdated"].append(path.name)
+            continue
+        if quarantine is None:
+            quarantine = quarantine_directory(project_root)
+        target = quarantine / path.name
+        if target.exists() or target.is_symlink():
+            sys.stderr.write(
+                f"Warning: quarantine destination already exists: {target}\n"
+            )
+            continue
+        shutil.move(str(path), str(target))
+        report["quarantined"].append(path.name)
+    return report
 
 
 def _legacy_observation(path: Path) -> dict[str, object]:
@@ -298,6 +344,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--init", action="store_true", help="Create the local store")
     parser.add_argument("--list", action="store_true", help="List pending observations as JSON")
     parser.add_argument("--archive", type=Path, help="Observation file to archive")
+    parser.add_argument(
+        "--tidy",
+        action="store_true",
+        help="Quarantine unreadable pending notes and report outdated ones",
+    )
     return parser
 
 
@@ -326,6 +377,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(observations, indent=2))
 
+    if args.tidy:
+        if legacy_mode:
+            sys.stderr.write("Error: --tidy requires a repository-local store\n")
+            return 2
+        try:
+            print(json.dumps(tidy_observations(args.project_root), indent=2))
+        except (OSError, ValueError) as error:
+            sys.stderr.write(f"Error: {error}\n")
+            return 2
+
     if args.archive:
         try:
             archived = archive_observation(args.archive, archive_directory)
@@ -334,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f"Archived {args.archive} -> {archived}")
 
-    if not (args.init or args.list or args.archive):
+    if not (args.init or args.list or args.archive or args.tidy):
         parser.print_help()
     return 0
 
