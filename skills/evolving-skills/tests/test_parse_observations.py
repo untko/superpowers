@@ -479,6 +479,52 @@ class TestTidyObservations(unittest.TestCase):
             )
 
 
+_LEGACY_NOTE = """---
+timestamp: '2026-07-24T03:19:00+07:00'
+skill: systematic-debugging
+phase: root_cause_investigation
+status: pending_distillation
+---
+
+# Fast-Loop Observation Note: Systematic Debugging Flaky Test Fix
+
+- **Observed Failure**: Agent raised timeouts instead of investigating shared state.
+- **Proposed Universal Fix**: Prohibit timeout adjustments without isolation checks.
+"""
+
+
+class MigrateLegacyTest(unittest.TestCase):
+    def test_converts_a_legacy_note_to_current_schema(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "legacy.md"
+            source.write_text(_LEGACY_NOTE, encoding="utf-8")
+            result = parse_observations.migrate_legacy_note(source)
+            self.assertEqual(adapter_protocol.validate_observation(result["metadata"]), [])
+            self.assertEqual(
+                result["metadata"]["skills"]["global"]["name"], "systematic-debugging"
+            )
+            self.assertEqual(
+                result["metadata"]["observation"]["phase"], "root_cause_investigation"
+            )
+            self.assertEqual(result["metadata"]["candidate"]["status"], "observed")
+
+    def test_preserves_the_legacy_body_verbatim(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "legacy.md"
+            source.write_text(_LEGACY_NOTE, encoding="utf-8")
+            result = parse_observations.migrate_legacy_note(source)
+            self.assertIn("Proposed Universal Fix", result["body"])
+            self.assertIn("shared state", result["body"])
+
+    def test_records_unavailable_provenance_as_unknown(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "legacy.md"
+            source.write_text(_LEGACY_NOTE, encoding="utf-8")
+            result = parse_observations.migrate_legacy_note(source)
+            self.assertEqual(result["metadata"]["runtime"]["model"], "unknown")
+            self.assertEqual(result["metadata"]["skills"]["adapter"]["path"], "unknown")
+
+
 class TestInstalledSkillPortabilityContract(unittest.TestCase):
     def test_commands_resolve_installed_helpers_outside_the_active_project(self):
         evolving_skill = (EVOLVING_SKILL_DIR / "SKILL.md").read_text()

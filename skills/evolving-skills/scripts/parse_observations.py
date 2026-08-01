@@ -206,6 +206,30 @@ def _legacy_observation(path: Path) -> dict[str, object]:
     }
 
 
+def migrate_legacy_note(filepath: Path | str) -> dict[str, object]:
+    """Convert one pre-v1 flat note into current-schema metadata and body."""
+    from new_observation import build_metadata
+
+    legacy = _legacy_observation(Path(filepath))
+    body = str(legacy["content"])
+    return {
+        "metadata": build_metadata(
+            skill=str(legacy["skill"]),
+            phase=str(legacy["phase"]),
+            expected="A reusable pattern was recorded under the pre-v1 note format.",
+            actual=body.splitlines()[0].strip("# ") if body else "unknown",
+            evidence="Migrated from a pre-v1 observation note; body preserved below.",
+            diagnosis="unknown",
+            scope="uncertain",
+            target="unknown",
+            runtime={},
+            provenance={},
+            adapter=None,
+        ),
+        "body": body,
+    }
+
+
 def _repository_observation(path: Path) -> dict[str, object] | None:
     frontmatter, body = parse_frontmatter(path.read_text(encoding="utf-8"))
     errors = validate_observation(frontmatter)
@@ -349,6 +373,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Quarantine unreadable pending notes and report outdated ones",
     )
+    parser.add_argument(
+        "--migrate-legacy",
+        type=Path,
+        help="Convert a pre-v1 note and write it into archived/",
+    )
     return parser
 
 
@@ -359,6 +388,9 @@ def main(argv: list[str] | None = None) -> int:
     legacy_mode = args.obs_dir is not None
 
     if legacy_mode:
+        sys.stderr.write(
+            "Warning: --obs-dir is deprecated; migrate with --migrate-legacy\n"
+        )
         observation_directory = args.obs_dir
         archive_directory = observation_directory / "archive"
         if args.init:
@@ -395,7 +427,27 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(f"Archived {args.archive} -> {archived}")
 
-    if not (args.init or args.list or args.archive or args.tidy):
+    if args.migrate_legacy:
+        from new_observation import render_frontmatter
+
+        try:
+            converted = migrate_legacy_note(args.migrate_legacy)
+            store = ensure_observation_store(args.project_root)
+            target = store["archived"] / args.migrate_legacy.name
+            if target.exists() or target.is_symlink():
+                raise FileExistsError(f"destination already exists: {target}")
+            target.write_text(
+                render_frontmatter(converted["metadata"])
+                + str(converted["body"]).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+        except (OSError, ValueError) as error:
+            sys.stderr.write(f"Error: {error}\n")
+            return 2
+        print(f"Migrated {args.migrate_legacy} -> {target}")
+
+    if not (args.init or args.list or args.archive or args.tidy or args.migrate_legacy):
         parser.print_help()
     return 0
 
