@@ -70,6 +70,9 @@ runtime:
   harness: codex-app
   harness-version: unknown
   interface: desktop
+  os: darwin
+  workspace: production
+  session-id: abc123
 skills:
   global:
     name: evolving-skills
@@ -87,6 +90,7 @@ observation:
   actual: A reusable friction pattern required an explicit local note.
   evidence: Sanitized command result and concise symptom.
   diagnosis: uncertain
+  observed: '2026-07-25'
 candidate:
   scope: potentially-global
   target: reference
@@ -101,10 +105,16 @@ Write notes with `python3 "$SKILL_DIR/scripts/new_observation.py"
 write frontmatter that does not validate. Add `--archive-now` for a note that
 needs no follow-up; it still moves through the guarded `pending/` queue.
 
-All listed fields are required except `skills.global.dirty`, which is optional
-and reports whether the working tree was dirty at the commit named above — a
-commit alone misleads when the tree is not clean. It stays absent when the
-state could not be determined. `skills.global.contract` is integer `1`;
+All listed fields are required except five optional fields: `skills.global.dirty`,
+`runtime.os`, `runtime.workspace`, `runtime.session-id`, and
+`observation.observed`. `skills.global.dirty` reports whether the working tree
+was dirty at the commit named above — a commit alone misleads when the tree is
+not clean — and stays absent when the state could not be determined.
+`runtime.os` records the operating system, `runtime.workspace` the workspace
+kind, `runtime.session-id` the harness session identifier, and
+`observation.observed` the date the friction occurred. Each optional field
+stays absent entirely when its value is unknown; a placeholder is never
+written. `skills.global.contract` is integer `1`;
 `skills.adapter.version` is a positive integer or non-empty string. Use
 `unknown` when provenance is unavailable. Allowed enums are:
 
@@ -133,6 +143,11 @@ retyping a required field requires a new version string and a registered
 validator for the old one, so existing evidence keeps validating instead of
 vanishing from every harvest. `--list` returns `current` and `outdated` notes
 alike, tagging each with `schema_status`.
+
+`runtime.os`, `runtime.workspace`, `runtime.session-id`, and
+`observation.observed` were added exactly this way: all four are optional, so
+every existing note stayed valid with no version bump and no migration. That
+is the escape hatch working as intended.
 
 `--tidy` reports four buckets — `kept`, `outdated`, `unknown_schema`, and
 `quarantined` — and moves only `invalid` notes, into `quarantine/`. Outdated

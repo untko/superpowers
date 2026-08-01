@@ -344,6 +344,13 @@ _STRING_FIELDS = (
 
 _OPTIONAL_BOOL_FIELDS = ("skills.global.dirty",)
 
+_OPTIONAL_STRING_FIELDS = (
+    "runtime.os",
+    "runtime.workspace",
+    "runtime.session-id",
+    "observation.observed",
+)
+
 _MAPPING_FIELDS = (
     "runtime",
     "skills",
@@ -446,6 +453,13 @@ def _validate_observation_v1(metadata: dict[str, object]) -> list[str]:
         exists, value = _lookup(metadata, path)
         if exists and type(value) is not bool:
             errors.append(f"{path} must be a boolean")
+
+    for path in _OPTIONAL_STRING_FIELDS:
+        if parent_is_invalid(path):
+            continue
+        exists, value = _lookup(metadata, path)
+        if exists and (not isinstance(value, str) or not value):
+            errors.append(f"{path} must be a non-empty string")
 
     for path, allowed in _ENUMS.items():
         exists, value = _lookup(metadata, path)

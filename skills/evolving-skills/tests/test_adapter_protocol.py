@@ -478,6 +478,49 @@ class ClassifyObservationTests(ProtocolTestCase):
             ["skills.global.dirty must be a boolean"],
         )
 
+    _OPTIONAL_STRING_CASES = (
+        ("runtime", "os"),
+        ("runtime", "workspace"),
+        ("runtime", "session-id"),
+        ("observation", "observed"),
+    )
+
+    def test_optional_string_fields_absent_is_valid(self):
+        metadata = _valid_observation_metadata()
+        for block, key in self._OPTIONAL_STRING_CASES:
+            self.assertNotIn(key, metadata[block])
+        self.assertEqual(adapter_protocol.validate_observation(metadata), [])
+
+    def test_optional_string_fields_accept_non_empty_string(self):
+        values = {
+            ("runtime", "os"): "darwin",
+            ("runtime", "workspace"): "production",
+            ("runtime", "session-id"): "abc123",
+            ("observation", "observed"): "2026-07-25",
+        }
+        for block, key in self._OPTIONAL_STRING_CASES:
+            metadata = _valid_observation_metadata()
+            metadata[block][key] = values[(block, key)]
+            self.assertEqual(adapter_protocol.validate_observation(metadata), [])
+
+    def test_optional_string_fields_reject_wrong_type(self):
+        for block, key in self._OPTIONAL_STRING_CASES:
+            metadata = _valid_observation_metadata()
+            metadata[block][key] = 7
+            self.assertEqual(
+                adapter_protocol.validate_observation(metadata),
+                [f"{block}.{key} must be a non-empty string"],
+            )
+
+    def test_optional_string_fields_reject_empty_string(self):
+        for block, key in self._OPTIONAL_STRING_CASES:
+            metadata = _valid_observation_metadata()
+            metadata[block][key] = ""
+            self.assertEqual(
+                adapter_protocol.validate_observation(metadata),
+                [f"{block}.{key} must be a non-empty string"],
+            )
+
     # Pinned to their values from before schema-version dispatch (c194c6d):
     # validate_observation must keep returning the combined schema + field
     # diagnostics for a non-current note, not just the schema line.

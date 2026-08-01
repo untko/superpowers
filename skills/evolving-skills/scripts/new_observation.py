@@ -29,6 +29,8 @@ _RUNTIME_KEYS = (
     "interface",
 )
 
+_OPTIONAL_RUNTIME_KEYS = ("os", "workspace", "session-id")
+
 
 def _scalar(value: object) -> str:
     """Render one value inside the frontmatter parser's accepted subset."""
@@ -71,6 +73,7 @@ def build_metadata(
     runtime: dict[str, str],
     provenance: dict[str, object],
     adapter: dict[str, object] | None,
+    observed: str | None = None,
 ) -> dict[str, object]:
     """Assemble current-schema metadata, defaulting every unknown to 'unknown'."""
     global_block: dict[str, object] = {
@@ -81,9 +84,22 @@ def build_metadata(
     }
     if "dirty" in provenance:
         global_block["dirty"] = bool(provenance["dirty"])
+    runtime_block = {key: runtime.get(key) or _UNKNOWN for key in _RUNTIME_KEYS}
+    for key in _OPTIONAL_RUNTIME_KEYS:
+        if runtime.get(key):
+            runtime_block[key] = runtime[key]
+    observation_block: dict[str, object] = {
+        "phase": phase,
+        "expected": expected,
+        "actual": actual,
+        "evidence": evidence,
+        "diagnosis": diagnosis,
+    }
+    if observed:
+        observation_block["observed"] = observed
     return {
         "schema": OBSERVATION_SCHEMA,
-        "runtime": {key: runtime.get(key) or _UNKNOWN for key in _RUNTIME_KEYS},
+        "runtime": runtime_block,
         "skills": {
             "global": global_block,
             "adapter": {
@@ -92,13 +108,7 @@ def build_metadata(
                 "git-commit": str((adapter or {}).get("git-commit") or _UNKNOWN),
             },
         },
-        "observation": {
-            "phase": phase,
-            "expected": expected,
-            "actual": actual,
-            "evidence": evidence,
-            "diagnosis": diagnosis,
-        },
+        "observation": observation_block,
         "candidate": {"scope": scope, "target": target, "status": "observed"},
     }
 
@@ -212,6 +222,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--archive-now", action="store_true")
     for key in _RUNTIME_KEYS:
         parser.add_argument(f"--{key}", default=None)
+    for key in _OPTIONAL_RUNTIME_KEYS:
+        parser.add_argument(f"--{key}", default=None)
+    parser.add_argument("--observed", default=None)
     return parser
 
 
@@ -222,6 +235,12 @@ def main(argv: list[str] | None = None) -> int:
     runtime = {key: getattr(args, key.replace("-", "_")) for key in _RUNTIME_KEYS}
     runtime["harness"] = runtime["harness"] or os.environ.get("SUPERPOWERS_HARNESS")
     runtime["model"] = runtime["model"] or os.environ.get("SUPERPOWERS_MODEL")
+    for key in _OPTIONAL_RUNTIME_KEYS:
+        value = getattr(args, key.replace("-", "_"))
+        if value:
+            runtime[key] = value
+    if "os" not in runtime:
+        runtime["os"] = sys.platform
     metadata = build_metadata(
         skill=args.skill,
         phase=args.phase,
@@ -234,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         runtime=runtime,
         provenance=_plugin_provenance(skill_root),
         adapter=_adapter_provenance(args.project_root, args.skill),
+        observed=args.observed,
     )
     try:
         path = write_observation(
