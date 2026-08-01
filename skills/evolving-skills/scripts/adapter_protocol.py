@@ -8,6 +8,7 @@ import ast
 import json
 from pathlib import Path
 import re
+from typing import Callable
 
 
 ADAPTER_SCHEMA = "superpowers-adapter/v1"
@@ -341,6 +342,8 @@ _STRING_FIELDS = (
     "candidate.status",
 )
 
+_OPTIONAL_BOOL_FIELDS = ("skills.global.dirty",)
+
 _MAPPING_FIELDS = (
     "runtime",
     "skills",
@@ -382,11 +385,9 @@ def _lookup(metadata: dict[str, object], path: str) -> tuple[bool, object]:
     return True, current
 
 
-def validate_observation(metadata: dict[str, object]) -> list[str]:
-    """Return every validation error in observation frontmatter metadata."""
+def _validate_observation_v1(metadata: dict[str, object]) -> list[str]:
+    """Return every field error in v1 observation frontmatter metadata."""
     errors: list[str] = []
-    if metadata.get("schema") != OBSERVATION_SCHEMA:
-        errors.append(f"schema must be {OBSERVATION_SCHEMA}")
 
     invalid_mappings: set[str] = set()
     for path in _MAPPING_FIELDS:
@@ -439,6 +440,13 @@ def validate_observation(metadata: dict[str, object]) -> list[str]:
                 "or positive integer"
             )
 
+    for path in _OPTIONAL_BOOL_FIELDS:
+        if parent_is_invalid(path):
+            continue
+        exists, value = _lookup(metadata, path)
+        if exists and type(value) is not bool:
+            errors.append(f"{path} must be a boolean")
+
     for path, allowed in _ENUMS.items():
         exists, value = _lookup(metadata, path)
         if exists and isinstance(value, str) and value not in allowed:
@@ -446,6 +454,43 @@ def validate_observation(metadata: dict[str, object]) -> list[str]:
                 f"{path} must be one of {', '.join(sorted(allowed))}"
             )
 
+    return errors
+
+
+OBSERVATION_VALIDATORS: dict[str, "Callable[[dict[str, object]], list[str]]"] = {
+    OBSERVATION_SCHEMA: _validate_observation_v1,
+}
+
+
+def classify_observation(metadata: dict[str, object]) -> tuple[str, list[str]]:
+    """Classify frontmatter against the schema version it declares.
+
+    Returns ``(status, errors)`` where status is ``current`` for a valid note on
+    the current schema, ``outdated`` for a valid note on a registered older
+    schema, ``unknown-schema`` for an unregistered version, and ``invalid`` for
+    a note that fails its own declared schema.
+    """
+    schema = metadata.get("schema")
+    if not isinstance(schema, str) or not schema:
+        return "invalid", ["schema is required"]
+    validator = OBSERVATION_VALIDATORS.get(schema)
+    if validator is None:
+        return "unknown-schema", [f"unknown observation schema {schema}"]
+    errors = validator(metadata)
+    if errors:
+        return "invalid", errors
+    if schema != OBSERVATION_SCHEMA:
+        return "outdated", []
+    return "current", []
+
+
+def validate_observation(metadata: dict[str, object]) -> list[str]:
+    """Return every validation error, treating a non-current schema as an error."""
+    status, errors = classify_observation(metadata)
+    if status == "current":
+        return []
+    if status in {"unknown-schema", "outdated"}:
+        return [f"schema must be {OBSERVATION_SCHEMA}"]
     return errors
 
 

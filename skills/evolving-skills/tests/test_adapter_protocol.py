@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import subprocess
@@ -61,6 +62,11 @@ VALID_OBSERVATION = {
         "status": "observed",
     },
 }
+
+
+def _valid_observation_metadata() -> dict:
+    """Return a fresh deep copy of a valid v1 observation metadata dict."""
+    return copy.deepcopy(VALID_OBSERVATION)
 
 
 class ProtocolTestCase(unittest.TestCase):
@@ -401,6 +407,76 @@ class ValidateObservationTests(ProtocolTestCase):
         errors = adapter_protocol.validate_observation(metadata)
 
         self.assertEqual(errors, ["skills.global.contract must be 1"])
+
+
+class ClassifyObservationTests(ProtocolTestCase):
+    def test_classify_returns_current_for_valid_v1(self):
+        metadata = _valid_observation_metadata()
+        self.assertEqual(
+            adapter_protocol.classify_observation(metadata), ("current", [])
+        )
+
+    def test_classify_returns_invalid_with_errors_for_malformed_v1(self):
+        metadata = _valid_observation_metadata()
+        del metadata["observation"]["expected"]
+        status, errors = adapter_protocol.classify_observation(metadata)
+        self.assertEqual(status, "invalid")
+        self.assertIn("observation.expected is required", errors)
+
+    def test_classify_returns_invalid_for_missing_schema(self):
+        metadata = _valid_observation_metadata()
+        del metadata["schema"]
+        status, errors = adapter_protocol.classify_observation(metadata)
+        self.assertEqual(status, "invalid")
+        self.assertEqual(errors, ["schema is required"])
+
+    def test_classify_returns_unknown_schema_for_unregistered_version(self):
+        metadata = _valid_observation_metadata()
+        metadata["schema"] = "superpowers-observation/v9"
+        status, errors = adapter_protocol.classify_observation(metadata)
+        self.assertEqual(status, "unknown-schema")
+        self.assertEqual(errors, ["unknown observation schema superpowers-observation/v9"])
+
+    def test_classify_returns_outdated_for_registered_older_version(self):
+        metadata = _valid_observation_metadata()
+        metadata["schema"] = "superpowers-observation/v0-test"
+        adapter_protocol.OBSERVATION_VALIDATORS["superpowers-observation/v0-test"] = (
+            lambda _metadata: []
+        )
+        self.addCleanup(
+            adapter_protocol.OBSERVATION_VALIDATORS.pop,
+            "superpowers-observation/v0-test",
+            None,
+        )
+        self.assertEqual(
+            adapter_protocol.classify_observation(metadata), ("outdated", [])
+        )
+
+    def test_validate_observation_message_unchanged_for_unknown_schema(self):
+        metadata = _valid_observation_metadata()
+        metadata["schema"] = "superpowers-observation/v9"
+        self.assertEqual(
+            adapter_protocol.validate_observation(metadata),
+            ["schema must be superpowers-observation/v1"],
+        )
+
+    def test_dirty_flag_is_optional_and_absent_is_valid(self):
+        metadata = _valid_observation_metadata()
+        self.assertNotIn("dirty", metadata["skills"]["global"])
+        self.assertEqual(adapter_protocol.validate_observation(metadata), [])
+
+    def test_dirty_flag_accepts_boolean(self):
+        metadata = _valid_observation_metadata()
+        metadata["skills"]["global"]["dirty"] = True
+        self.assertEqual(adapter_protocol.validate_observation(metadata), [])
+
+    def test_dirty_flag_rejects_non_boolean(self):
+        metadata = _valid_observation_metadata()
+        metadata["skills"]["global"]["dirty"] = "yes"
+        self.assertEqual(
+            adapter_protocol.validate_observation(metadata),
+            ["skills.global.dirty must be a boolean"],
+        )
 
 
 class CliTests(ProtocolTestCase):
