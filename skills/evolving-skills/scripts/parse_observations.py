@@ -159,9 +159,20 @@ def quarantine_directory(project_root: Path) -> Path:
 
 
 def tidy_observations(project_root: Path) -> dict[str, object]:
-    """Sweep the pending queue, quarantining notes no harvest can ever read."""
+    """Sweep the pending queue, quarantining only notes no harvest can ever read.
+
+    ``outdated`` notes (a registered older schema) and ``unknown-schema``
+    notes (an unregistered schema — almost always written by a newer plugin
+    than this checkout can validate) are both reported but left in place.
+    Only genuinely ``invalid`` notes move to ``quarantine/``.
+    """
     store = _require_observation_store(_resolve_project_root(project_root), create=False)
-    report: dict[str, object] = {"kept": [], "outdated": [], "quarantined": []}
+    report: dict[str, object] = {
+        "kept": [],
+        "outdated": [],
+        "unknown_schema": [],
+        "quarantined": [],
+    }
     quarantine: Path | None = None
     for path in sorted(store["pending"].iterdir()):
         if path.is_symlink() or path.suffix != ".md" or path.name == "README.md":
@@ -178,6 +189,9 @@ def tidy_observations(project_root: Path) -> dict[str, object]:
             continue
         if status == "outdated":
             report["outdated"].append(path.name)
+            continue
+        if status == "unknown-schema":
+            report["unknown_schema"].append(path.name)
             continue
         if quarantine is None:
             quarantine = quarantine_directory(project_root)
@@ -206,34 +220,59 @@ def _legacy_observation(path: Path) -> dict[str, object]:
     }
 
 
+def _legacy_field(legacy: dict[str, object], key: str) -> str:
+    """Return a legacy field, defaulting to 'unknown' when missing or blank.
+
+    ``_legacy_observation`` already defaults a *missing* key to ``"unknown"``,
+    but a key that is *present* with an empty value (``phase: ''``) passes
+    that default through untouched; this normalizes both cases the same way.
+    """
+    value = str(legacy.get(key, "")).strip()
+    return value or "unknown"
+
+
 def migrate_legacy_note(filepath: Path | str) -> dict[str, object]:
-    """Convert one pre-v1 flat note into current-schema metadata and body."""
+    """Convert one pre-v1 flat note into current-schema metadata and body.
+
+    Raises ``ValueError`` rather than returning metadata that fails its own
+    schema, so a degenerate legacy note (blank fields, a bare '#' heading)
+    never produces a silent invalid write.
+    """
     from new_observation import build_metadata
 
     legacy = _legacy_observation(Path(filepath))
     body = str(legacy["content"])
-    return {
-        "metadata": build_metadata(
-            skill=str(legacy["skill"]),
-            phase=str(legacy["phase"]),
-            expected="A reusable pattern was recorded under the pre-v1 note format.",
-            actual=body.splitlines()[0].strip("# ") if body else "unknown",
-            evidence="Migrated from a pre-v1 observation note; body preserved below.",
-            diagnosis="unknown",
-            scope="uncertain",
-            target="unknown",
-            runtime={},
-            provenance={},
-            adapter=None,
-        ),
-        "body": body,
-    }
+    actual = (body.splitlines()[0].strip("# ") if body else "") or "unknown"
+    metadata = build_metadata(
+        skill=_legacy_field(legacy, "skill"),
+        phase=_legacy_field(legacy, "phase"),
+        expected="A reusable pattern was recorded under the pre-v1 note format.",
+        actual=actual,
+        evidence="Migrated from a pre-v1 observation note; body preserved below.",
+        diagnosis="unknown",
+        scope="uncertain",
+        target="unknown",
+        runtime={},
+        provenance={},
+        adapter=None,
+    )
+    errors = validate_observation(metadata)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return {"metadata": metadata, "body": body}
 
 
 def _repository_observation(path: Path) -> dict[str, object] | None:
+    """Read one pending note, keeping both current and outdated schema notes.
+
+    A harvest must survive a schema version bump: only ``invalid`` and
+    ``unknown-schema`` notes are dropped (with a warning). A valid note on a
+    registered older schema is still returned, tagged with ``schema_status``
+    so a caller can tell the two apart.
+    """
     frontmatter, body = parse_frontmatter(path.read_text(encoding="utf-8"))
-    errors = validate_observation(frontmatter)
-    if errors:
+    status, errors = classify_observation(frontmatter)
+    if status not in {"current", "outdated"}:
         sys.stderr.write(
             f"Warning: Ignoring invalid observation {path.name}: {'; '.join(errors)}\n"
         )
@@ -256,6 +295,7 @@ def _repository_observation(path: Path) -> dict[str, object] | None:
         "skills": skills,
         "observation": observation,
         "candidate": candidate,
+        "schema_status": status,
     }
 
 

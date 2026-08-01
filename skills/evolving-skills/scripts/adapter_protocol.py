@@ -457,7 +457,7 @@ def _validate_observation_v1(metadata: dict[str, object]) -> list[str]:
     return errors
 
 
-OBSERVATION_VALIDATORS: dict[str, "Callable[[dict[str, object]], list[str]]"] = {
+OBSERVATION_VALIDATORS: dict[str, Callable[[dict[str, object]], list[str]]] = {
     OBSERVATION_SCHEMA: _validate_observation_v1,
 }
 
@@ -485,12 +485,22 @@ def classify_observation(metadata: dict[str, object]) -> tuple[str, list[str]]:
 
 
 def validate_observation(metadata: dict[str, object]) -> list[str]:
-    """Return every validation error, treating a non-current schema as an error."""
-    status, errors = classify_observation(metadata)
-    if status == "current":
-        return []
-    if status in {"unknown-schema", "outdated"}:
-        return [f"schema must be {OBSERVATION_SCHEMA}"]
+    """Return every validation error, preserving the pre-classification contract.
+
+    This must not branch on ``classify_observation``'s status: that status is
+    "invalid" both when the schema field itself is wrong *and* when a
+    correctly-declared current schema simply has bad fields (e.g. a wrong
+    ``contract``), and those two cases need different messages. Instead this
+    reproduces the original, unconditional check: append the fixed schema
+    message only when the schema field itself does not match, then always run
+    every v1 field check and append its errors too, so an author sees every
+    problem at once instead of having to fix the schema line before any field
+    diagnostic appears.
+    """
+    errors: list[str] = []
+    if metadata.get("schema") != OBSERVATION_SCHEMA:
+        errors.append(f"schema must be {OBSERVATION_SCHEMA}")
+    errors.extend(_validate_observation_v1(metadata))
     return errors
 
 

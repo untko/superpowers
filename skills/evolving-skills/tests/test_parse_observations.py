@@ -246,6 +246,38 @@ class TestRepositoryObservationStore(unittest.TestCase):
             direct_pending = parse_observations.list_observations(store["pending"])
         self.assertEqual([item["filename"] for item in direct_pending], ["pending.md"])
 
+    def test_repository_listing_tags_current_notes_with_schema_status(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        (store["pending"] / "pending.md").write_text(V1_OBSERVATION)
+
+        with redirect_stderr(StringIO()):
+            observations = parse_observations.list_observations(store["root"])
+
+        self.assertEqual(observations[0]["schema_status"], "current")
+
+    def test_repository_listing_keeps_outdated_notes_on_a_registered_older_schema(self):
+        store = parse_observations.ensure_observation_store(self.project_root)
+        (store["pending"] / "old.md").write_text(
+            V1_OBSERVATION.replace(
+                "superpowers-observation/v1", "superpowers-observation/v0-test"
+            )
+        )
+        adapter_protocol.OBSERVATION_VALIDATORS[
+            "superpowers-observation/v0-test"
+        ] = lambda _metadata: []
+        self.addCleanup(
+            adapter_protocol.OBSERVATION_VALIDATORS.pop,
+            "superpowers-observation/v0-test",
+            None,
+        )
+
+        with redirect_stderr(StringIO()):
+            observations = parse_observations.list_observations(store["root"])
+
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0]["filename"], "old.md")
+        self.assertEqual(observations[0]["schema_status"], "outdated")
+
     def test_repository_listing_rejects_symlinked_pending_directory_escape(self):
         store = parse_observations.ensure_observation_store(self.project_root)
         store["pending"].rmdir()
@@ -454,6 +486,22 @@ class TestTidyObservations(unittest.TestCase):
             self.assertEqual(report["quarantined"], [])
             self.assertTrue((store["pending"] / "old.md").is_file())
 
+    def test_tidy_reports_unknown_schema_without_moving_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = parse_observations.ensure_observation_store(Path(root))
+            _write_valid_note(store["pending"], "future.md")
+            text = (store["pending"] / "future.md").read_text(encoding="utf-8")
+            (store["pending"] / "future.md").write_text(
+                text.replace(
+                    "superpowers-observation/v1", "superpowers-observation/v9"
+                ),
+                encoding="utf-8",
+            )
+            report = parse_observations.tidy_observations(Path(root))
+            self.assertEqual(report["unknown_schema"], ["future.md"])
+            self.assertEqual(report["quarantined"], [])
+            self.assertTrue((store["pending"] / "future.md").is_file())
+
     def test_tidy_ignores_symlinked_notes(self):
         with tempfile.TemporaryDirectory() as root:
             store = parse_observations.ensure_observation_store(Path(root))
@@ -523,6 +571,30 @@ class MigrateLegacyTest(unittest.TestCase):
             result = parse_observations.migrate_legacy_note(source)
             self.assertEqual(result["metadata"]["runtime"]["model"], "unknown")
             self.assertEqual(result["metadata"]["skills"]["adapter"]["path"], "unknown")
+
+    def test_degenerate_legacy_note_never_produces_a_silent_invalid_write(self):
+        degenerate_note = (
+            "---\n"
+            "timestamp: '2026-07-24T03:19:00+07:00'\n"
+            "skill: systematic-debugging\n"
+            "phase: ''\n"
+            "status: pending_distillation\n"
+            "---\n"
+            "\n"
+            "#\n"
+        )
+        with tempfile.TemporaryDirectory() as root:
+            source = Path(root) / "legacy.md"
+            source.write_text(degenerate_note, encoding="utf-8")
+            try:
+                result = parse_observations.migrate_legacy_note(source)
+            except ValueError:
+                return
+            self.assertEqual(
+                adapter_protocol.validate_observation(result["metadata"]), []
+            )
+            self.assertEqual(result["metadata"]["observation"]["phase"], "unknown")
+            self.assertEqual(result["metadata"]["observation"]["actual"], "unknown")
 
 
 class TestInstalledSkillPortabilityContract(unittest.TestCase):

@@ -127,7 +127,7 @@ def write_observation(
     stamp = now or datetime.now().strftime("%Y-%m-%d-%H%M%S")
     store = ensure_observation_store(project_root)
     path = store["pending"] / _filename(metadata, stamp)
-    if path.exists():
+    if path.exists() or path.is_symlink():
         raise ValueError(f"observation already exists: {path}")
     path.write_text(
         render_frontmatter(metadata) + body.strip() + "\n", encoding="utf-8"
@@ -172,7 +172,10 @@ def _plugin_provenance(skill_root: Path) -> dict[str, object]:
     if commit:
         provenance["git-commit"] = commit
         status = _git(skill_root, "status", "--porcelain")
-        provenance["dirty"] = bool(status)
+        # `dirty` is optional by design; an unverified state call must leave
+        # it absent rather than recording a false "false".
+        if status is not None:
+            provenance["dirty"] = bool(status)
     return provenance
 
 

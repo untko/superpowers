@@ -478,6 +478,38 @@ class ClassifyObservationTests(ProtocolTestCase):
             ["skills.global.dirty must be a boolean"],
         )
 
+    # Pinned to their values from before schema-version dispatch (c194c6d):
+    # validate_observation must keep returning the combined schema + field
+    # diagnostics for a non-current note, not just the schema line.
+
+    def test_validate_observation_reports_schema_only_for_missing_schema(self):
+        metadata = _valid_observation_metadata()
+        del metadata["schema"]
+        self.assertEqual(
+            adapter_protocol.validate_observation(metadata),
+            ["schema must be superpowers-observation/v1"],
+        )
+
+    def test_validate_observation_reports_schema_and_field_errors_together(self):
+        metadata = _valid_observation_metadata()
+        metadata["schema"] = "superpowers-observation/v2"
+        del metadata["observation"]["expected"]
+        self.assertEqual(
+            adapter_protocol.validate_observation(metadata),
+            [
+                "schema must be superpowers-observation/v1",
+                "observation.expected is required",
+            ],
+        )
+
+    def test_validate_observation_reports_schema_only_for_non_string_schema(self):
+        metadata = _valid_observation_metadata()
+        metadata["schema"] = 1
+        self.assertEqual(
+            adapter_protocol.validate_observation(metadata),
+            ["schema must be superpowers-observation/v1"],
+        )
+
 
 class CliTests(ProtocolTestCase):
     def test_discover_cli_emits_json_and_uses_protocol_exit_codes(self):

@@ -32,11 +32,11 @@ class RenderFrontmatterTest(unittest.TestCase):
     def test_collapses_newlines_into_single_line_scalars(self):
         metadata = {"observation": {"evidence": "line one\nline two"}}
         text = new_observation.render_frontmatter(metadata)
-        # Nesting "observation" -> "evidence" costs a header line plus a value
-        # line, framed by the "---" delimiters: 4 lines total. What this test
-        # actually guards is that the embedded newline in the value collapses
-        # into that single value line rather than emitting a fifth line.
-        self.assertEqual(len(text.strip().splitlines()), 4)
+        # A line-count assertion here is vacuous: repr() already keeps an
+        # embedded "\n" on one physical line even without the " ".join(...
+        # .split()) collapse, so a bare line count would pass either way.
+        # Assert the collapsed content directly instead.
+        self.assertIn("evidence: 'line one line two'", text)
 
 
 class BuildMetadataTest(unittest.TestCase):
@@ -108,6 +108,22 @@ class WriteObservationTest(unittest.TestCase):
                 new_observation.write_observation(Path(root), metadata, "body")
             pending = Path(root) / ".superpowers" / "observations" / "pending"
             self.assertFalse(pending.exists() and list(pending.iterdir()))
+
+    def test_refuses_to_write_through_a_dangling_pending_symlink(self):
+        with tempfile.TemporaryDirectory() as root:
+            metadata = self._metadata()
+            now = "2026-08-01-000000"
+            store = new_observation.ensure_observation_store(Path(root))
+            filename = new_observation._filename(metadata, now)
+            outside_target = Path(root) / "outside.md"
+            (store["pending"] / filename).symlink_to(outside_target)
+
+            with self.assertRaises(ValueError):
+                new_observation.write_observation(
+                    Path(root), metadata, "Sanitized body.", now=now
+                )
+
+            self.assertFalse(outside_target.exists())
 
 
 if __name__ == "__main__":
