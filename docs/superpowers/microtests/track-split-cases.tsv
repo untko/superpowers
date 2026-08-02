@@ -1,0 +1,15 @@
+A	Rename `getUserData` to `fetchUserProfile` across the repo
+A	Fix the typo in the login error message — it says "Recieve" instead of "Receive"
+A	Bump the HTTP client timeout from 5 seconds to 30 seconds
+A	Add a --verbose flag that prints the resolved config path on startup
+A	The footer copyright year is hardcoded to 2023, make it track the current year
+A	Cache the result of resolveConfig() so we stop re-reading the file on every call
+B	Add OAuth login with Google and GitHub
+B	Build a plugin system so third parties can register their own commands
+B	Migrate the public API from REST to GraphQL
+B	Add multi-tenancy — every record needs to be scoped to an organization
+B	Add offline support with local-first sync
+B	Add a --json flag so the command output can be piped to jq
+B	Add retry logic to the API client
+B	Split this 800-line file into smaller modules
+B	Add a --dry-run flag to the deploy command

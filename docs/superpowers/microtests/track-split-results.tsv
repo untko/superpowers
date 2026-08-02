@@ -1,0 +1,45 @@
+A	A	3	Rename `getUserData` to `fetchUserProfile` across the repo
+A	A	1	Fix the typo in the login error message — it says "Recieve" instead of "Receive"
+A	A	1	Rename `getUserData` to `fetchUserProfile` across the repo
+A	A	2	Rename `getUserData` to `fetchUserProfile` across the repo
+A	A	3	Fix the typo in the login error message — it says "Recieve" instead of "Receive"
+A	A	1	Bump the HTTP client timeout from 5 seconds to 30 seconds
+A	A	2	Fix the typo in the login error message — it says "Recieve" instead of "Receive"
+A	A	2	Bump the HTTP client timeout from 5 seconds to 30 seconds
+A	A	3	Bump the HTTP client timeout from 5 seconds to 30 seconds
+A	A	1	Add a --verbose flag that prints the resolved config path on startup
+A	A	2	Add a --verbose flag that prints the resolved config path on startup
+A	A	1	The footer copyright year is hardcoded to 2023, make it track the current year
+A	A	3	Add a --verbose flag that prints the resolved config path on startup
+A	A	2	The footer copyright year is hardcoded to 2023, make it track the current year
+A	A	3	The footer copyright year is hardcoded to 2023, make it track the current year
+A	B	1	Cache the result of resolveConfig() so we stop re-reading the file on every call
+A	B	2	Cache the result of resolveConfig() so we stop re-reading the file on every call
+A	B	3	Cache the result of resolveConfig() so we stop re-reading the file on every call
+B	B	1	Add OAuth login with Google and GitHub
+B	B	2	Add OAuth login with Google and GitHub
+B	B	3	Add OAuth login with Google and GitHub
+B	B	1	Build a plugin system so third parties can register their own commands
+B	B	2	Build a plugin system so third parties can register their own commands
+B	B	3	Build a plugin system so third parties can register their own commands
+B	B	2	Migrate the public API from REST to GraphQL
+B	B	1	Migrate the public API from REST to GraphQL
+B	B	3	Migrate the public API from REST to GraphQL
+B	B	2	Add multi-tenancy — every record needs to be scoped to an organization
+B	B	1	Add multi-tenancy — every record needs to be scoped to an organization
+B	B	3	Add multi-tenancy — every record needs to be scoped to an organization
+B	B	3	Add offline support with local-first sync
+B	B	2	Add offline support with local-first sync
+B	B	1	Add a --json flag so the command output can be piped to jq
+B	B	2	Add a --json flag so the command output can be piped to jq
+B	B	3	Add a --json flag so the command output can be piped to jq
+B	B	2	Add retry logic to the API client
+B	B	3	Add retry logic to the API client
+B	B	1	Split this 800-line file into smaller modules
+B	B	2	Split this 800-line file into smaller modules
+B	B	1	Add offline support with local-first sync
+B	B	3	Split this 800-line file into smaller modules
+B	B	1	Add a --dry-run flag to the deploy command
+B	B	2	Add a --dry-run flag to the deploy command
+B	B	3	Add a --dry-run flag to the deploy command
+B	B	1	Add retry logic to the API client

@@ -10,14 +10,46 @@ Help turn ideas into fully formed designs and specs through natural collaborativ
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
 
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
+Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity, on both tracks below.
 </HARD-GATE>
 
-## Anti-Pattern: "This Is Too Simple To Need A Design"
+## Step 0: Pick the Track
 
-Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
+Both tracks present a design and get approval. They differ in how much
+apparatus surrounds it.
 
-## Checklist
+**Take Track B (full design) if ANY of these hold:**
+
+1. **More than one plausible shape.** You can describe two designs that both
+   satisfy the request and would lead to meaningfully different code.
+2. **Hard to reverse.** It adds a dependency, changes a schema, stored data,
+   or a config format, or changes an interface something else already calls.
+3. **Broad.** You cannot yet name the files you'd edit, or there are more
+   than a handful.
+4. **New surface, undetermined behavior.** It adds a command, flag, endpoint,
+   or output format whose behavior is not fully implied by its name.
+   `--verbose` is implied; `--json` (what shape?) and `--dry-run` (what is
+   skipped?) are not.
+
+**Otherwise take Track A.** Ties go to Track B. If the user asks for a spec, a
+plan, or "the full treatment," that is Track B regardless of the predicates.
+
+**Track A — inline design.** State in chat, in 2-4 sentences: what you'll
+change, where, and any judgment call you made. Get an explicit yes. Then do
+the work. No spec file, no todo list, no handoff to writing-plans.
+
+**Track B — full design.** The checklist below.
+
+## Anti-Pattern: Skipping the Design
+
+Every request gets a design and an approval, Track A included. What scales
+between the tracks is the paperwork, not the thinking.
+
+"It's obvious what they want" is how you build the wrong thing quickly. If
+you cannot state the design in two sentences, you do not have one yet — that
+is a signal for Track B, not a signal to start typing.
+
+## Checklist (Track B)
 
 You MUST create a task for each of these items and complete them in order:
 
@@ -36,6 +68,10 @@ You MUST create a task for each of these items and complete them in order:
 ```dot
 digraph brainstorming {
     "Explore project context" [shape=box];
+    "Track A or B?" [shape=diamond];
+    "State design in 2-4 sentences" [shape=box];
+    "User approves?" [shape=diamond];
+    "Do the work" [shape=doublecircle];
     "Ask clarifying questions" [shape=box];
     "Propose 2-3 approaches" [shape=box];
     "Present design sections" [shape=box];
@@ -45,7 +81,12 @@ digraph brainstorming {
     "User reviews spec?" [shape=diamond];
     "Invoke writing-plans skill" [shape=doublecircle];
 
-    "Explore project context" -> "Ask clarifying questions";
+    "Explore project context" -> "Track A or B?";
+    "Track A or B?" -> "State design in 2-4 sentences" [label="A"];
+    "State design in 2-4 sentences" -> "User approves?";
+    "User approves?" -> "State design in 2-4 sentences" [label="no, revise"];
+    "User approves?" -> "Do the work" [label="yes"];
+    "Track A or B?" -> "Ask clarifying questions" [label="B"];
     "Ask clarifying questions" -> "Propose 2-3 approaches";
     "Propose 2-3 approaches" -> "Present design sections";
     "Present design sections" -> "User approves design?";
@@ -58,7 +99,9 @@ digraph brainstorming {
 }
 ```
 
-**The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
+**On Track B the terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after a Track B brainstorm is writing-plans.
+
+**On Track A there is no plan step.** After the user approves the inline design, do the work directly — writing-plans exists to decompose work that needs decomposing, and Track A work does not.
 
 ## The Process
 
@@ -126,7 +169,7 @@ After the spec review loop passes, ask the user to review the written spec befor
 
 Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
 
-**Implementation:**
+**Implementation (Track B):**
 
 - Invoke the writing-plans skill to create a detailed implementation plan
 - Do NOT invoke any other skill. writing-plans is the next step.
