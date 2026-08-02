@@ -13,6 +13,17 @@ Ensure work happens in an isolated workspace. Prefer your platform's native work
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
+## When Isolation Is Warranted
+
+Isolation pays for itself when the work spans multiple commits, runs long
+enough that you'd want the original workspace usable meanwhile, or will be
+executed by subagents. A single-commit change on a branch you already have
+rarely justifies a new workspace.
+
+Create one anyway when the work will be executed by subagents, when your
+human partner asks, or when you would otherwise be committing to
+main/master — that last one is not negotiable regardless of size.
+
 ## Step 0: Detect Existing Isolation
 
 **Before creating anything, check if you are already in an isolated workspace.**

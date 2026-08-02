@@ -18,6 +18,18 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
+## When a Plan Is Warranted
+
+A plan decomposes work into tasks that each carry their own test cycle and
+reviewer gate. Work that is a single such task does not need one — a plan
+with one task is overhead with a filename.
+
+Write the plan when there are multiple tasks, when they have ordering
+constraints, or when the work will be executed by subagents or in a separate
+session that needs the written context. Skip it when the change is one task's
+worth of work; a brainstorm that took Track A reaches implementation
+directly and does not pass through this skill.
+
 ## Scope Check
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
