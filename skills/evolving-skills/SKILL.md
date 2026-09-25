@@ -1,75 +1,66 @@
 ---
 name: evolving-skills
-description: Use when distilling raw observation notes, evolving superpowers skills, or maintaining the skill library
+description: Use when evolving skills, turning recorded friction into a skill-edit proposal, or maintaining the skill library
+metadata:
+  frozen:
+    failing-test: "No skill without a failing test."
+    path-boundaries: "Never violate path boundaries."
+  word-budget: 450
 ---
 
 # Evolving Skills
 
-Maintain `superpowers` as versioned procedural memory. Distill general patterns
-from observations with paired counter-metrics, frozen anchors, and independent
-audit loops.
+Propose skill edits from real friction. `$SKILL_DIR` is this skill's directory;
+`$PROJECT` is the project root you were started in. `W` is the work directory
+`prepare` prints. Every step is one command or one decision, and ends when the
+next line prints. You never write a proposal by hand and never edit a skill
+outside `W/workspace/`.
 
-## Core Principles
+No skill without a failing test.
+Never violate path boundaries.
 
-1. **Strict Universal Abstraction**: Strip project-specific names, paths, and repositories during distillation.
-2. **Frozen Anchors**: Core Iron Laws (*"No skill without a failing test"*, *"Never violate path boundaries"*) CANNOT be edited or weakened.
-3. **Tiered Progressive Disclosure**: `SKILL.md` stays below 500 words. Put niche guidance in `references/`.
+## 1. Stage the run
 
-## Workflow
-
-```dot
-digraph slow_loop {
-    "1. Harvest Observations" -> "2. Universal Abstraction Gate";
-    "2. Universal Abstraction Gate" -> "3. Tiered Target Allocation";
-    "3. Tiered Target Allocation" -> "4. Hybrid Verification Gate";
-    "4. Hybrid Verification Gate" -> "5. Paired Audit Counter Check";
-    "5. Paired Audit Counter Check" -> "6. User Approval & Archive";
-}
+```sh
+python3 "$SKILL_DIR/scripts/propose.py" prepare --project "$PROJECT"
 ```
 
-### 1. Harvest Observations
-Let `SKILL_DIR` mean the directory containing this loaded `evolving-skills/SKILL.md`,
-and `PROJECT_ROOT` the active project root. Run
-`python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --tidy`
-to quarantine unreadable notes, then
-`python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --list`
-to fetch the pending queue. Group them by target skill.
+Read `W/brief.md`: one section per candidate, its scope, its correction, session
+and event counts, and one bullet per friction excerpt. Stage another repository
+only when your human partner named that repository on the command line.
 
-When the user explicitly asks to evolve skills from another repository, also
-inspect its notes under `.superpowers/observations/`. Never harvest it during
-routine closeout, and never copy project-specific paths, names, secrets, or raw
-transcripts into the global library. Cross-repository edits require explicit
-user approval.
+## 2. Judge each candidate
 
-Repositories only observe and propose; only an explicit global evolution run
-may generalize, test, approve, and release a global change. Neither direction
-auto-writes the other repository. Read the protocol reference in this installed
-skill's `references/` directory.
+For each name `prepare` printed, in that order. Friction is tagged with every
+skill loaded when it happened, so most candidates are innocent.
 
-### 2. Universal Abstraction Gate
-Convert raw observations into universal engineering patterns:
-- Isolate the general symptom and verbatim rationalization.
-- Classify rule form: Prohibition Table, Output Contract/Recipe, Structural Template, or Observable Conditional.
+Not this skill's fault:
 
-### 3. Tiered Target Allocation
-- **`SKILL.md`**: Core triggers, < 500 words, high-priority Red Flags / Rationalization tables.
-- **`references/`**: Topic guides or nested folders for niche/rare error modes.
-- **`scripts/`**: Executable helper tools for repetitive operations.
+```sh
+python3 "$SKILL_DIR/scripts/propose.py" dismiss "$W" <skill> --project "$PROJECT"
+```
 
-### 4. Hybrid Verification Gate
-- **Rule/Discipline Changes**: Perform TDD micro-tests (RED: verify agent fails/rationalizes without patch $\rightarrow$ GREEN: verify agent complies with patch).
-- **Reference & Script Updates**: Run static audit (Abstraction Audit, dead link check, script execution test).
+It stops when the file is gone from `W/proposals/`.
 
-### 5. Paired Audit Counter-Metric Check & Archive
-- **Token Budget Check**: Ensure `SKILL.md` word count remains < 500.
-- **Frozen Anchor Check**: Ensure no core safety rule was weakened.
-- Present candidate diff to user. Upon approval, apply edit and archive note:
-  `python3 "$SKILL_DIR/scripts/parse_observations.py" --project-root "$PROJECT_ROOT" --archive <filepath>`
+This skill's fault: make the smallest edit in `W/workspace/<skill>/` that would
+have prevented this friction. Prefer `references/` over `SKILL.md`. Strip
+project names, paths and secrets. No blank lines: `collect` refuses them. Done
+when the edited file says the new rule in one line.
 
-## Red Flags
+## 3. Collect and gate
 
-| Thought | Reality |
-|---------|---------|
-| "I'll include project details for context" | Superpowers MUST be 100% universal. Strip project context. |
-| "I'll append this rule to SKILL.md" | Check token budget first! Use `references/` for progressive disclosure. |
-| "I'll soften the Iron Law to fit this case" | Iron Laws are Frozen Anchors. Do NOT weaken them. |
+```sh
+python3 "$SKILL_DIR/scripts/propose.py" collect "$W" <skill> --project "$PROJECT"
+```
+
+Add `--wording` when a `SKILL.md` line is reworded without changing a rule. It
+stops when the JSON report prints. Read `reason` and `detail`, fix
+`W/workspace/<skill>/`, collect again. Repeat until the report says `passed`, or
+until it says `eval-skipped` for a rule change — then ask your human partner for
+a `--cli` and `--model`, and collect again with them. `references/proposer.md`
+maps every rejection reason to the edit it needs.
+
+## 4. Ask
+
+Show each passing proposal: its `operations` and its report. Release is never
+yours. Release: after approval, apply with the release step (see references).

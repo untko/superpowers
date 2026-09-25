@@ -55,6 +55,10 @@ class Rejected(Exception):
         self.reason, self.detail = reason, detail
 
 
+class Usage(Exception):
+    """A command line the script refuses, with no verdict of its own."""
+
+
 def _safe_name(value: object) -> bool:
     """One path segment: no separators, not hidden, not empty."""
     return isinstance(value, str) and bool(value) and "/" not in value and not value.startswith(".")
@@ -368,6 +372,15 @@ def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path
     return report
 
 
+def build_runner(cli: str | None, model: str | None) -> Runner | None:
+    """The eval runner for a --cli/--model pair; None when neither is named."""
+    if bool(cli) != bool(model):
+        raise Usage("--cli and --model go together")
+    if cli and cli != "claude":
+        raise Usage(f"unsupported CLI {cli!r}, only 'claude' runs evals")
+    return ClaudePluginEval(model) if cli else None
+
+
 def main(argv: list[str] | None = None) -> int:
     library = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
@@ -378,13 +391,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cli", help="model CLI to run evals with, with --model")
     parser.add_argument("--model", help="model to run evals with, with --cli")
     args = parser.parse_args(argv)
-    if bool(args.cli) != bool(args.model):
-        print("release-gate: --cli and --model go together", file=sys.stderr)
+    try:
+        runner = build_runner(args.cli, args.model)
+    except Usage as usage:
+        print(f"release-gate: {usage}", file=sys.stderr)
         return 2
-    if args.cli and args.cli != "claude":
-        print(f"release-gate: unsupported CLI {args.cli!r}, only 'claude' runs evals", file=sys.stderr)
-        return 2
-    runner = ClaudePluginEval(args.model) if args.cli else None
     try:
         proposal = json.loads(args.proposal.read_text(encoding="utf-8"))
         if not isinstance(proposal, dict):

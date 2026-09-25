@@ -601,23 +601,22 @@ class TestInstalledSkillPortabilityContract(unittest.TestCase):
     def test_commands_resolve_installed_helpers_outside_the_active_project(self):
         evolving_skill = (EVOLVING_SKILL_DIR / "SKILL.md").read_text()
         using_skill = (SKILLS_DIR / "using-superpowers" / "SKILL.md").read_text()
+        proposer_reference = (
+            EVOLVING_SKILL_DIR / "references" / "proposer.md"
+        ).read_text()
         protocol_reference = (
             EVOLVING_SKILL_DIR / "references" / "local-adapter-protocol.md"
         ).read_text()
-        combined = "\n".join((evolving_skill, using_skill, protocol_reference))
+        combined = "\n".join(
+            (evolving_skill, using_skill, proposer_reference, protocol_reference)
+        )
 
+        self.assertIn('python3 "$SKILL_DIR/scripts/propose.py"', evolving_skill)
         self.assertIn(
-            "directory containing this loaded `evolving-skills/SKILL.md`",
-            evolving_skill,
+            'python3 "$SKILL_DIR/scripts/parse_observations.py"',
+            proposer_reference,
         )
-        self.assertGreaterEqual(
-            evolving_skill.count(
-                'python3 "$SKILL_DIR/scripts/parse_observations.py"'
-            ),
-            2,
-        )
-        self.assertIn('--project-root "$PROJECT_ROOT" --list', evolving_skill)
-        self.assertIn('--project-root "$PROJECT_ROOT" --archive', evolving_skill)
+        self.assertIn('--project-root "$PROJECT" --archive', proposer_reference)
         self.assertNotIn("$PROJECT_ROOT/skills/evolving-skills", combined)
         self.assertNotIn("python3 skills/evolving-skills/scripts", combined)
 
