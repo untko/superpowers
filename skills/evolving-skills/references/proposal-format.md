@@ -50,15 +50,17 @@ metadata:
 
 The gate rejects edits that remove or reword an anchor line or change either
 declaration. The budget defaults to 500 words; a `SKILL.md` over it may shrink
-but not grow.
+but not grow. Only the body after the frontmatter counts.
 
 ## Gate report
 
-Rejection reasons, in check order: `scope`, `not-itemized`,
+Rejection reasons, in check order: `schema`, `scope`, `not-itemized`,
 `insufficient-evidence`, `anchor`, `budget`, `links`, `script-tests`.
 Operations confined to `references/` or `scripts/`, and claimed rewordings,
 are `static` and finish after these checks. Any other edit is a
 `rule-change` and stops with `eval-skipped` until an eval runner is chosen.
+A static edit under `scripts/` runs the skill's own tests on the edited copy,
+so it executes the proposed code as you: read it before running the gate.
 
 ```sh
 python3 "$SKILL_DIR/scripts/release_gate.py" proposal.json --project .

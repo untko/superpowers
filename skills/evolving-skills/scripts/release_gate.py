@@ -12,10 +12,10 @@ import sys
 import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
 
 from adapter_protocol import parse_frontmatter
 
+SCHEMA = "superpowers-proposal/v1"
 PROJECT_SKILL_DIRS = (".claude/skills", ".agents/skills")
 FRICTION_LOG = Path(".superpowers") / "friction.jsonl"
 MIN_FRICTION_SESSIONS = 2
@@ -38,15 +38,29 @@ class Report:
     review: list[str] = field(default_factory=list)  # claims a human must confirm
 
 
+@dataclass(frozen=True)
+class Limits:
+    """What a SKILL.md declares about itself: frozen anchors (name to line) and word budget."""
+
+    anchors: dict[str, str]
+    budget: int
+    body: str
+
+
 class Rejected(Exception):
     def __init__(self, reason: str, detail: str) -> None:
         super().__init__(f"{reason}: {detail}")
         self.reason, self.detail = reason, detail
 
 
-def _skill_dir(name: Any, scope: Any, library_root: Path, project: Path) -> Path | None:
+def _safe_name(value: object) -> bool:
+    """One path segment: no separators, not hidden, not empty."""
+    return isinstance(value, str) and bool(value) and "/" not in value and not value.startswith(".")
+
+
+def _skill_dir(name: object, scope: object, library_root: Path, project: Path) -> Path | None:
     """The skill's directory in the repo its scope names, or None if it lives elsewhere."""
-    if not isinstance(name, str) or not name or "/" in name or name.startswith("."):
+    if not _safe_name(name):
         return None
     if scope == "global":
         candidates = [library_root / name]
@@ -63,11 +77,11 @@ def _skill_dir(name: Any, scope: Any, library_root: Path, project: Path) -> Path
     return None
 
 
-def _single_line(value: Any) -> bool:
+def _single_line(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip()) and "\n" not in value and "\r" not in value
 
 
-def _itemized(operations: Any) -> bool:
+def _itemized(operations: object) -> bool:
     """A non-empty list of add/change/remove operations, each touching one line."""
     if not isinstance(operations, list) or not operations:
         return False
@@ -82,7 +96,7 @@ def _itemized(operations: Any) -> bool:
     return True
 
 
-def _friction_about(skill: str, project: Path) -> dict[str, dict[str, Any]]:
+def _friction_about(skill: str, project: Path) -> dict[str, dict]:
     """Events in the project's friction log attributed to this skill, by id."""
     events = {}
     try:
@@ -102,14 +116,14 @@ def _friction_about(skill: str, project: Path) -> dict[str, dict[str, Any]]:
     return events
 
 
-def _has_case(skill: str, case_id: Any, evals_root: Path) -> bool:
-    if not isinstance(case_id, str) or not case_id or "/" in case_id or case_id.startswith("."):
+def _has_case(skill: str, case_id: object, evals_root: Path) -> bool:
+    if not _safe_name(case_id):
         return False
     cases = evals_root / skill
     return cases.is_dir() and any(path.stem == case_id for path in cases.iterdir())
 
 
-def _sufficient_evidence(skill: str, evidence: Any, project: Path, evals_root: Path) -> bool:
+def _sufficient_evidence(skill: str, evidence: object, project: Path, evals_root: Path) -> bool:
     """A correction, a failing case, or friction from at least two sessions, all verifiable."""
     if not isinstance(evidence, list):
         return False
@@ -126,9 +140,20 @@ def _sufficient_evidence(skill: str, evidence: Any, project: Path, evals_root: P
             continue
         if kind == "correction" and event.get("kind") == "correction":
             return True
-        if kind == "friction":
-            sessions.add(event.get("session_id"))
+        if kind == "friction" and _single_line(event.get("session_id")):
+            sessions.add(event["session_id"])
     return len(sessions) >= MIN_FRICTION_SESSIONS
+
+
+def _normalized(operation: dict, skill_copy: Path) -> dict:
+    """The operation with `file` resolved to a plain path inside the skill."""
+    target = (skill_copy / operation["file"]).resolve()
+    root = skill_copy.resolve()
+    if not target.is_relative_to(root):
+        raise Rejected("scope", f"{operation['file']} is outside the skill")
+    if target == root or target.is_dir():
+        raise Rejected("not-itemized", f"{operation['file']} is a directory")
+    return {**operation, "file": target.relative_to(root).as_posix()}
 
 
 def _only_line(lines: list[str], text: str, file: str) -> int:
@@ -139,11 +164,9 @@ def _only_line(lines: list[str], text: str, file: str) -> int:
     return matches[0]
 
 
-def _apply(operation: Mapping[str, Any], skill_copy: Path) -> None:
+def _apply(operation: dict, skill_copy: Path) -> None:
     """Apply one line operation to the working copy, keeping the edited line's indentation."""
-    target = (skill_copy / operation["file"]).resolve()
-    if not target.is_relative_to(skill_copy.resolve()):
-        raise Rejected("scope", f"{operation['file']} is outside the skill")
+    target = skill_copy / operation["file"]
     exists = target.is_file()
     if not exists and not (operation["op"] == "add" and "after" not in operation):
         raise Rejected("not-itemized", f"{operation['file']} does not exist")
@@ -163,11 +186,9 @@ def _apply(operation: Mapping[str, Any], skill_copy: Path) -> None:
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _limits(skill_md: Path) -> tuple[dict[str, str], int, str]:
-    """A SKILL.md's frozen anchors (name to line), word budget, and full text."""
-    text = skill_md.read_text(encoding="utf-8")
+def _limits(skill_md: Path) -> Limits:
     try:
-        metadata, _ = parse_frontmatter(text)
+        metadata, body = parse_frontmatter(skill_md.read_text(encoding="utf-8"))
     except ValueError as error:
         raise Rejected("anchor", f"frontmatter unreadable, anchors unknown: {error}") from error
     extra = metadata.get("metadata") if isinstance(metadata.get("metadata"), dict) else {}
@@ -175,40 +196,43 @@ def _limits(skill_md: Path) -> tuple[dict[str, str], int, str]:
     budget = extra.get("word-budget", DEFAULT_WORD_BUDGET)
     if not isinstance(budget, int) or isinstance(budget, bool):
         raise Rejected("budget", f"word-budget must be an integer, got {budget!r}")
-    return {k: str(v) for k, v in frozen.items()}, budget, text
+    return Limits({k: str(v) for k, v in frozen.items()}, budget, body)
 
 
-def _check_anchors(original: Path, edited: Path) -> None:
-    anchors = _limits(original)[0]
-    edited_anchors, _, after = _limits(edited)
-    if edited_anchors != anchors:
-        changed = sorted({k for k, _ in set(anchors.items()) ^ set(edited_anchors.items())})
+def _check_anchors(before: Limits, after: Limits) -> None:
+    if after.anchors != before.anchors:
+        changed = sorted({k for k, _ in set(before.anchors.items()) ^ set(after.anchors.items())})
         raise Rejected("anchor", f"anchor declarations changed: {', '.join(changed)}")
-    body = {line.strip() for line in parse_frontmatter(after)[1].splitlines()}
-    lost = [name for name, line in anchors.items() if line.strip() not in body]
+    body = {line.strip() for line in after.body.splitlines()}
+    lost = [name for name, line in before.anchors.items() if line.strip() not in body]
     if lost:
         raise Rejected("anchor", f"frozen anchor edited or removed: {', '.join(lost)}")
 
 
-def _check_budget(original: Path, edited: Path) -> None:
-    """Hold SKILL.md to its budget; a skill already over it may shrink but not grow."""
-    _, budget, before = _limits(original)
-    _, edited_budget, after = _limits(edited)
-    if edited_budget != budget:
-        raise Rejected("budget", f"word budget changed from {budget} to {edited_budget}")
-    words_before, words_after = len(before.split()), len(after.split())
-    if words_after > budget and words_after > words_before:
-        raise Rejected("budget", f"SKILL.md grows to {words_after} words, budget {budget}")
+def _check_budget(before: Limits, after: Limits) -> None:
+    """Hold the SKILL.md body to its budget; a skill already over it may shrink but not grow."""
+    if after.budget != before.budget:
+        raise Rejected("budget", f"word budget changed from {before.budget} to {after.budget}")
+    words_before, words_after = len(before.body.split()), len(after.body.split())
+    if words_after > before.budget and words_after > words_before:
+        raise Rejected("budget", f"SKILL.md grows to {words_after} words, budget {before.budget}")
 
 
-def _check_links(operations: list[Mapping[str, Any]], skill_dir: Path, skill_copy: Path) -> None:
-    """Every relative link an operation writes must resolve, in the edited skill or beside it."""
+def _check_links(operations: list[dict], skill_dir: Path, skill_copy: Path) -> None:
+    """Every relative link an operation writes resolves in the edited skill or a sibling skill."""
+    skills_root = skill_dir.parent.resolve()
     for operation in operations:
-        for target in _LINK.findall(operation.get("to", "") if operation["op"] != "remove" else ""):
+        written = "" if operation["op"] == "remove" else operation["to"]
+        for target in _LINK.findall(written):
             if "://" in target or target.startswith(("#", "mailto:")):
                 continue
             relative = Path(operation["file"]).parent / target.split("#", 1)[0]
-            if not ((skill_copy / relative).exists() or (skill_dir / relative).exists()):
+            in_copy = (skill_copy / relative).resolve()
+            beside = (skill_dir / relative).resolve()
+            if not (
+                (in_copy.is_relative_to(skill_copy.resolve()) and in_copy.exists())
+                or (beside.is_relative_to(skills_root) and beside.exists())
+            ):
                 raise Rejected("links", f"{operation['file']}: {target} does not resolve")
 
 
@@ -228,27 +252,38 @@ def _check_script_tests(skill_copy: Path) -> None:
         raise Rejected("script-tests", result.stderr.strip().splitlines()[-1] if result.stderr else "")
 
 
-def _classify(operations: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
-    """Static when no operation can change a rule; claimed rewordings go to human review."""
+def _top_dir(operation: dict) -> str:
+    return Path(operation["file"]).parts[0]
+
+
+def _classify(operations: list[dict], before: Limits) -> tuple[str, list[str]]:
+    """Static when no operation can change a rule; claimed body rewordings go to human review."""
+    body = {line.strip() for line in before.body.splitlines()}
     review = []
     for operation in operations:
-        if Path(operation["file"]).parts[0] in STATIC_DIRS:
+        if _top_dir(operation) in STATIC_DIRS:
             continue
-        if operation["file"] == "SKILL.md" and operation["op"] == "change" and operation.get("wording") is True:
+        if (
+            operation["file"] == "SKILL.md"
+            and operation["op"] == "change"
+            and operation.get("wording") is True
+            and operation["line"].strip() in body
+        ):
             review.append(f"wording-only claim: {operation['line']!r} -> {operation['to']!r}")
             continue
         return "rule-change", []
     return "static", review
 
 
-def _run_checks(proposal: Mapping[str, Any], report: Report, *, library_root: Path, project: Path,
+def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: Path,
                 evals_root: Path) -> None:
+    if proposal.get("schema") != SCHEMA:
+        raise Rejected("schema", f"expected schema {SCHEMA}")
     skill_dir = _skill_dir(proposal.get("skill"), proposal.get("scope"), library_root, project)
     if skill_dir is None:
         raise Rejected("scope", "skill not found in the repo its scope names")
     report.checks.append("scope")
-    operations = proposal.get("operations")
-    if not _itemized(operations):
+    if not _itemized(proposal.get("operations")):
         raise Rejected("not-itemized", "operations must each add, change, or remove one line")
     report.checks.append("itemized")
     if not _sufficient_evidence(skill_dir.name, proposal.get("evidence"), project, evals_root):
@@ -259,29 +294,30 @@ def _run_checks(proposal: Mapping[str, Any], report: Report, *, library_root: Pa
     report.checks.append("evidence")
     with tempfile.TemporaryDirectory() as work:
         skill_copy = Path(work) / skill_dir.name
-        shutil.copytree(skill_dir, skill_copy)
+        # Links stay links, so an edit through one resolves outside the copy and is refused.
+        shutil.copytree(skill_dir, skill_copy, symlinks=True)
+        operations = [_normalized(op, skill_copy) for op in proposal["operations"]]
         for operation in operations:
             _apply(operation, skill_copy)
-        report.kind, report.review = _classify(operations)
-        _check_anchors(skill_dir / "SKILL.md", skill_copy / "SKILL.md")
+        before, after = _limits(skill_dir / "SKILL.md"), _limits(skill_copy / "SKILL.md")
+        report.kind, report.review = _classify(operations, before)
+        _check_anchors(before, after)
         report.checks.append("anchor")
-        _check_budget(skill_dir / "SKILL.md", skill_copy / "SKILL.md")
+        _check_budget(before, after)
         report.checks.append("budget")
         _check_links(operations, skill_dir, skill_copy)
         report.checks.append("links")
-        if any(Path(op["file"]).parts[0] == "scripts" for op in operations):
+        if report.kind == "rule-change":
+            raise Rejected("eval-skipped", "no runner chosen")
+        if any(_top_dir(op) == "scripts" for op in operations):
             if (skill_copy / "tests").is_dir():
                 _check_script_tests(skill_copy)
                 report.checks.append("script-tests")
             else:
                 report.review.append("scripts changed and the skill has no tests")
-    if report.kind == "rule-change":
-        raise Rejected("eval-skipped", "no runner chosen")
 
 
-def check(
-    proposal: Mapping[str, Any], *, library_root: Path, project: Path, evals_root: Path
-) -> Report:
+def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path) -> Report:
     """Run the gate's own checks on one proposal; the report names the first rejection."""
     report = Report(passed=False)
     try:
@@ -302,7 +338,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--library-root", type=Path, default=library)
     parser.add_argument("--evals-root", type=Path, default=library.parent / "evals")
     args = parser.parse_args(argv)
-    proposal = json.loads(args.proposal.read_text(encoding="utf-8"))
+    try:
+        proposal = json.loads(args.proposal.read_text(encoding="utf-8"))
+        if not isinstance(proposal, dict):
+            raise ValueError("proposal must be a JSON object")
+    except (OSError, ValueError) as error:
+        print(f"release-gate: {args.proposal}: {error}", file=sys.stderr)
+        return 2
     report = check(
         proposal,
         library_root=args.library_root,

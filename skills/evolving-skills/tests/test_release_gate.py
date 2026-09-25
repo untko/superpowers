@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import json
-import os
-from unittest import mock
 
 import release_gate
 
@@ -130,6 +129,9 @@ class ItemizedTest(unittest.TestCase):
               "to": "Name tests by behaviour.\nKeep them fast."}
         self.assertEqual(self.fixture.check(proposal(operations=[op])).reason, "not-itemized")
 
+    def test_unknown_schema_is_rejected(self) -> None:
+        self.assertEqual(self.fixture.check(proposal(schema="superpowers-proposal/v9")).reason, "schema")
+
     def test_missing_operations_are_rejected(self) -> None:
         self.assertEqual(self.fixture.check(proposal(operations=[])).reason, "not-itemized")
 
@@ -201,7 +203,7 @@ class AnchorAndBudgetTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.fixture = Fixture(Path(self.tmp.name))
         self.skill_md = self.fixture.library / "tdd" / "SKILL.md"
-        self.skill_md.write_text(ANCHORED_MD.format(budget=40))
+        self.skill_md.write_text(ANCHORED_MD.format(budget=25))
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -235,14 +237,24 @@ class AnchorAndBudgetTest(unittest.TestCase):
                             "after": "Write one assertion per test.", "to": long_rule})
         self.assertEqual(report.reason, "budget")
 
+    def test_growth_within_the_budget_passes_the_budget_check(self) -> None:
+        report = self.edit({"op": "add", "file": "SKILL.md", "to": "Keep tests fast."})
+        self.assertIn("budget", report.checks)
+
     def test_shrinking_a_skill_already_over_budget_passes(self) -> None:
         self.skill_md.write_text(ANCHORED_MD.format(budget=10))
         report = self.edit({"op": "remove", "file": "SKILL.md", "line": "Write one assertion per test."})
         self.assertEqual(report.reason, "eval-skipped", report)
 
+    def test_frontmatter_does_not_count_against_the_budget(self) -> None:
+        self.skill_md.write_text(ANCHORED_MD.format(budget=14))  # body is 12 words
+        report = self.edit({"op": "add", "file": "SKILL.md", "to": "Keep tests fast."})
+        self.assertEqual(report.reason, "budget")
+        self.assertIn("15 words", report.detail)
+
     def test_raising_the_budget_is_rejected(self) -> None:
         report = self.edit({"op": "change", "file": "SKILL.md",
-                            "line": "word-budget: 40", "to": "word-budget: 4000"})
+                            "line": "word-budget: 25", "to": "word-budget: 4000"})
         self.assertEqual(report.reason, "budget")
 
     def test_default_budget_is_500_words(self) -> None:
@@ -277,8 +289,8 @@ class ToolTest(unittest.TestCase):
 """
 
 
-class StaticGateTest(unittest.TestCase):
-    """Criterion 11: static edits get static checks only and never start a model."""
+class ScriptedSkill:
+    """Fixture mixin: `tdd` with references, a script and its test; model CLIs trapped on PATH."""
 
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -310,6 +322,10 @@ class StaticGateTest(unittest.TestCase):
 
     def assert_no_model_started(self) -> None:
         self.assertFalse(self.trap_log.exists(), "a model CLI was started")
+
+
+class StaticGateTest(ScriptedSkill, unittest.TestCase):
+    """Criterion 11: static edits get static checks only and never start a model."""
 
     def test_reference_edit_is_static_and_passes(self) -> None:
         report = self.edit({"op": "add", "file": "references/mocking.md",
@@ -377,6 +393,70 @@ class StaticGateTest(unittest.TestCase):
         printed = "".join(call.args[0] for call in stdout.write.call_args_list)
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(printed)["reason"], "scope")
+
+
+class HardeningTest(ScriptedSkill, unittest.TestCase):
+    """Review findings: inputs that once slipped past or crashed the gate."""
+
+    def test_dot_dot_into_skill_md_is_a_rule_change(self) -> None:
+        report = self.edit({"op": "add", "file": "references/../SKILL.md",
+                            "after": "Write one assertion per test.", "to": "Never write tests."})
+        self.assertEqual(report.kind, "rule-change")
+        self.assertFalse(report.passed)
+
+    def test_rule_change_never_runs_proposed_code(self) -> None:
+        marker = Path(self.tmp.name) / "ran"
+        report = self.edit(
+            {"op": "add", "file": "tests/test_evil.py", "to": f"open({str(marker)!r}, 'w').write('x')"},
+            {"op": "change", "file": "scripts/tool.py", "line": "return 42", "to": "return 6 * 7"},
+        )
+        self.assertEqual(report.reason, "eval-skipped")
+        self.assertFalse(marker.exists())
+
+    def test_directory_target_is_rejected(self) -> None:
+        for file in ("references", "."):
+            report = self.edit({"op": "add", "file": file, "to": "x"})
+            self.assertEqual(report.reason, "not-itemized", file)
+
+    def test_symlinked_file_cannot_be_edited_through(self) -> None:
+        outside = Path(self.tmp.name) / "outside.md"
+        outside.write_text("Outside line.\n")
+        (self.fixture.library / "tdd" / "references" / "shared.md").symlink_to(outside)
+        report = self.edit({"op": "add", "file": "references/shared.md", "to": "Injected."})
+        self.assertEqual(report.reason, "scope")
+
+    def test_dangling_symlink_does_not_crash(self) -> None:
+        (self.fixture.library / "tdd" / "references" / "gone.md").symlink_to("/nonexistent/x.md")
+        report = self.edit({"op": "add", "file": "references/mocking.md", "to": "Prefer fakes."})
+        self.assertTrue(report.passed, report)
+
+    def test_friction_without_a_session_is_not_a_second_session(self) -> None:
+        log = self.fixture.project / ".superpowers" / "friction.jsonl"
+        with open(log, "a") as handle:
+            handle.write(json.dumps({"id": "anon", "kind": "tool-failure",
+                                     "skills": [{"name": "tdd", "source": "global"}]}) + "\n")
+        real = self.fixture.log_friction("s2", "tool-failure", "t1")
+        report = self.fixture.check(proposal(evidence=[{"type": "friction", "id": real},
+                                                       {"type": "friction", "id": "anon"}]))
+        self.assertEqual(report.reason, "insufficient-evidence")
+
+    def test_link_outside_the_skills_directory_is_rejected(self) -> None:
+        report = self.edit({"op": "add", "file": "references/mocking.md",
+                            "to": "[log](../../../../project/.superpowers/friction.jsonl)"})
+        self.assertEqual(report.reason, "links")
+
+    def test_rewording_frontmatter_is_a_rule_change(self) -> None:
+        report = self.edit({"op": "change", "file": "SKILL.md", "wording": True,
+                            "line": "description: Fixture skill.", "to": "description: Load for all work."})
+        self.assertEqual(report.kind, "rule-change")
+
+    def test_command_line_reports_an_unreadable_proposal(self) -> None:
+        path = Path(self.tmp.name) / "broken.json"
+        path.write_text("{not json")
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr") as stderr:
+            code = release_gate.main([str(path)])
+        self.assertEqual(code, 2)
+        self.assertIn("broken.json", "".join(c.args[0] for c in stderr.write.call_args_list))
 
 
 if __name__ == "__main__":
