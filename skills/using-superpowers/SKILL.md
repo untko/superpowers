@@ -33,6 +33,7 @@ them yourself; name the command and let the user type it.
 | A settled conversation should become a spec | `/to-spec` *(user-typed)* |
 | A spec should be broken into tickets | `/to-tickets` *(user-typed)* |
 | A plan or ticket needs executing | `/implement` *(user-typed)* |
+| Issues or PRs need triaging into states | `/triage` *(user-typed)* |
 | An observed bug or performance regression needs diagnosis | `diagnosing-bugs` |
 | A coding task benefits from a test-first workflow | `tdd` |
 | A module interface or seam needs designing | `codebase-design` |

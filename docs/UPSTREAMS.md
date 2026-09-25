@@ -20,4 +20,9 @@ Claude plugin cache (`claude-plugins-official/mattpocock-skills/1.2.3`).
   setup-pre-commit
 - in-progress: loop-me, writing-beats, writing-fragments, writing-shape
 
-Local edits since import: `implement` and `tdd` point at `review-since`.
+Local edits since import:
+
+- `implement` and `tdd` point at `review-since`.
+- `to-spec`: one checkpoint (draft review, seams included) before publishing;
+  Open Questions and Acceptance Criteria sections; one story per distinct
+  behaviour; `needs-info` label while questions stay open.
