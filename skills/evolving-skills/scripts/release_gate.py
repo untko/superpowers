@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from adapter_protocol import parse_frontmatter
-from eval_runner import ClaudePluginEval, EvalFailed, Runner, find_cases
+from eval_runner import RUNNERS, EvalFailed, Runner, find_cases
 
 SCHEMA = "superpowers-proposal/v1"
 PROJECT_SKILL_DIRS = (".claude/skills", ".agents/skills")
@@ -394,9 +394,10 @@ def build_runner(cli: str | None, model: str | None) -> Runner | None:
     """The eval runner for a --cli/--model pair; None when neither is named."""
     if bool(cli) != bool(model):
         raise Usage("--cli and --model go together")
-    if cli and cli != "claude":
-        raise Usage(f"unsupported CLI {cli!r}, only 'claude' runs evals")
-    return ClaudePluginEval(model) if cli else None
+    runner = RUNNERS.get(cli) if cli else None
+    if cli and runner is None:
+        raise Usage(f"unsupported CLI {cli!r}, known CLIs: {', '.join(sorted(RUNNERS))}")
+    return runner(model) if runner else None
 
 
 def main(argv: list[str] | None = None) -> int:

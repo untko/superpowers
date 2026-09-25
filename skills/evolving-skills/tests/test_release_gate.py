@@ -576,7 +576,8 @@ class CommandLineEvalTest(ScriptedSkill, unittest.TestCase):
         self.assertIn("unsupported CLI", err)
 
     def test_naming_a_cli_and_a_model_builds_the_runner(self) -> None:
-        with mock.patch("release_gate.ClaudePluginEval") as factory:
+        factory = mock.Mock()
+        with mock.patch.dict(eval_runner.RUNNERS, {"claude": factory}):
             code, printed, _ = self.gate("--cli", "claude", "--model", "sonnet")
         self.assertEqual(code, 0)
         self.assertEqual(factory.call_args, mock.call("sonnet"))
@@ -585,7 +586,7 @@ class CommandLineEvalTest(ScriptedSkill, unittest.TestCase):
     def test_the_runner_reaches_the_gate_and_its_scores_the_report(self) -> None:
         self.fixture.add_cases("tdd", "red-first")
         stub = StubRunner(without={"red-first": 0.25}, with_edit={"red-first": 0.75})
-        with mock.patch("release_gate.ClaudePluginEval", return_value=stub):
+        with mock.patch.dict(eval_runner.RUNNERS, {"claude": mock.Mock(return_value=stub)}):
             code, printed, _ = self.gate("--cli", "claude", "--model", "sonnet",
                                          operations=(RULE_CHANGE,))
         self.assertEqual(code, 0)

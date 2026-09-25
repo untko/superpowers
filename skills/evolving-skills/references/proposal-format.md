@@ -112,4 +112,9 @@ python3 "$SKILL_DIR/scripts/release_gate.py" proposal.json --project . \
   --cli claude --model sonnet
 ```
 
-`--cli` and `--model` go together; the only CLI is `claude` today.
+`--cli` and `--model` go together. Two CLIs run evals. `claude` scores every
+case with `claude plugin eval`. `opencode` runs each `prompt.md` with
+`opencode run` and has a model grade the transcript against each
+`graders/*.md`, so any model opencode can reach works, for example
+`--cli opencode --model openrouter/<model>`. Scores from different CLIs or
+models are not comparable; compare only within one gate run.

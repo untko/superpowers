@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import propose
 import new_observation
 import release_gate
+import eval_runner
 from adapter_protocol import parse_frontmatter
 
 SKILL_MD = """---
@@ -562,7 +563,8 @@ class CollectTest(ProposerTest):
             SKILL_MD.format(name="tdd").replace("Always run the tests first.",
                                                "Always run the failing test first."))
         stub = mock.Mock(cli="claude", model="sonnet", score=lambda *_: {})
-        with mock.patch("release_gate.ClaudePluginEval", return_value=stub) as factory:
+        factory = mock.Mock(return_value=stub)
+        with mock.patch.dict(eval_runner.RUNNERS, {"claude": factory}):
             code, printed, _ = self.collect("tdd", "--cli", "claude", "--model", "sonnet")
         self.assertEqual((code, factory.call_args), (1, mock.call("sonnet")))
         self.assertEqual(json.loads(printed)["reason"], "untested")
