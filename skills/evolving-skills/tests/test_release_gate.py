@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 import unittest
@@ -12,6 +14,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import eval_runner
 import release_gate
 
 SKILL_MD = """---
@@ -53,9 +56,17 @@ class Fixture:
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(text or SKILL_MD.format(name=skill_dir.name))
 
-    def check(self, proposal: dict) -> release_gate.Report:
+    def add_cases(self, skill: str, *cases: str) -> None:
+        """Create eval cases for a skill; each name is one directory, nested or not."""
+        for case in cases:
+            case_dir = self.evals / skill / case
+            case_dir.mkdir(parents=True, exist_ok=True)
+            (case_dir / "prompt.md").write_text("Do the thing.\n")
+
+    def check(self, proposal: dict, runner=None) -> release_gate.Report:
         return release_gate.check(
-            proposal, library_root=self.library, project=self.project, evals_root=self.evals
+            proposal, library_root=self.library, project=self.project, evals_root=self.evals,
+            runner=runner,
         )
 
 
@@ -163,9 +174,18 @@ class EvidenceTest(unittest.TestCase):
         self.assertTrue(self.cite(("correction", "s1:correction:p1")).passed)
 
     def test_one_failing_case_is_sufficient(self) -> None:
+        self.fixture.add_cases("tdd", "skips-red")
+        self.assertTrue(self.cite(("case", "skips-red")).passed)
+
+    def test_a_case_is_a_directory_not_a_file_stem(self) -> None:
         cases = self.fixture.evals / "tdd"
         cases.mkdir(parents=True)
         (cases / "skips-red.json").write_text("{}")
+        (cases / "skips-red").mkdir()
+        self.assertEqual(self.cite(("case", "skips-red")).reason, "insufficient-evidence")
+
+    def test_a_nested_case_directory_is_still_a_case(self) -> None:
+        self.fixture.add_cases("tdd", "quality/skips-red")
         self.assertTrue(self.cite(("case", "skips-red")).passed)
 
     def test_unknown_ids_are_not_evidence(self) -> None:
@@ -393,6 +413,163 @@ class StaticGateTest(ScriptedSkill, unittest.TestCase):
         printed = "".join(call.args[0] for call in stdout.write.call_args_list)
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(printed)["reason"], "scope")
+
+
+RULE_CHANGE = {"op": "add", "file": "SKILL.md", "after": "Write one assertion per test.",
+               "to": "Name tests by behaviour."}
+REFERENCE_EDIT = {"op": "add", "file": "references/mocking.md", "after": "Mock at boundaries.",
+                  "to": "Prefer fakes to mocks."}
+
+
+class StubRunner:
+    """Answers from a per-arm table and records the skill copy and cases it was handed."""
+
+    cli = "stub-cli"
+    model = "stub-model"
+
+    def __init__(self, without: dict[str, float] | None = None, with_edit: dict[str, float] | None = None,
+                 failure: str | None = None) -> None:
+        if with_edit is None:
+            with_edit = without
+        self.arms = [without or {}, with_edit or {}]
+        self.failure = failure
+        self.calls: list[tuple[Path, str, tuple[str, ...]]] = []
+
+    def score(self, skill_dir: Path, cases: list[Path]) -> dict[str, float]:
+        self.calls.append((skill_dir, (skill_dir / "SKILL.md").read_text(),
+                           tuple(case.name for case in cases)))
+        if self.failure is not None:
+            raise eval_runner.EvalFailed(self.failure)
+        return {case.name: self.arms[len(self.calls) - 1][case.name] for case in cases}
+
+
+class RuleChangeEvalTest(ScriptedSkill, unittest.TestCase):
+    """Criteria 12-14: a rule change is scored on every case, before and after the edit."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.fixture.add_cases("tdd", "red-first", "writes-one-test")
+        self.runner = StubRunner(without={"red-first": 0.25, "writes-one-test": 0.5},
+                                 with_edit={"red-first": 0.75, "writes-one-test": 0.5})
+
+    def rule_change(self, runner: StubRunner | None = None) -> release_gate.Report:
+        return self.fixture.check(proposal(operations=[RULE_CHANGE]),
+                                  runner=self.runner if runner is None else runner)
+
+    def test_a_passing_rule_change_reports_both_scores(self) -> None:
+        report = self.rule_change()
+        self.assertTrue(report.passed, report)
+        self.assertEqual(report.kind, "rule-change")
+        self.assertEqual(report.eval, {
+            "cli": "stub-cli",
+            "model": "stub-model",
+            "cases": {
+                "red-first": {"without": 0.25, "with": 0.75, "delta": 0.5},
+                "writes-one-test": {"without": 0.5, "with": 0.5, "delta": 0.0},
+            },
+        })
+        self.assertIn("eval", report.checks)
+        self.assert_no_model_started()
+
+    def test_every_case_runs_once_on_each_arm(self) -> None:
+        self.rule_change()
+        self.assertEqual(len(self.runner.calls), 2)
+        original, edited = self.runner.calls
+        self.assertEqual(original[0], self.fixture.library / "tdd")
+        self.assertNotIn("Name tests by behaviour.", original[1])
+        self.assertNotEqual(edited[0], original[0])
+        self.assertIn("Name tests by behaviour.", edited[1])
+        for _, _, case_ids in self.runner.calls:
+            self.assertEqual(case_ids, ("red-first", "writes-one-test"))
+        self.assert_no_model_started()
+
+    def test_a_skill_with_no_cases_is_untested(self) -> None:
+        shutil.rmtree(self.fixture.evals / "tdd")
+        report = self.rule_change()
+        self.assertEqual(report.reason, "untested")
+        self.assertIsNone(report.eval)
+        self.assertEqual(self.runner.calls, [])
+
+    def test_a_lower_with_edit_score_is_a_regression(self) -> None:
+        runner = StubRunner(without={"red-first": 0.75, "writes-one-test": 0.5},
+                            with_edit={"red-first": 0.5, "writes-one-test": 0.75})
+        report = self.rule_change(runner)
+        self.assertEqual((report.reason, report.detail), ("regression", "score fell on: red-first"))
+        self.assertEqual(report.eval["cases"], {
+            "red-first": {"without": 0.75, "with": 0.5, "delta": -0.25},
+            "writes-one-test": {"without": 0.5, "with": 0.75, "delta": 0.25},
+        })
+
+    def test_a_runner_failure_is_never_a_score_of_zero(self) -> None:
+        report = self.rule_change(StubRunner(failure="auth_failed"))
+        self.assertEqual((report.reason, report.detail), ("eval-failed", "auth_failed"))
+        self.assertIsNone(report.eval)
+
+    def test_a_static_edit_never_calls_the_runner(self) -> None:
+        report = self.fixture.check(proposal(operations=[REFERENCE_EDIT]), runner=self.runner)
+        self.assertTrue(report.passed, report)
+        self.assertIsNone(report.eval)
+        self.assertEqual(self.runner.calls, [])
+
+    def test_a_nested_case_is_found_and_scored(self) -> None:
+        self.fixture.add_cases("tdd", "quality/one-assertion")
+        scores = {"one-assertion": 0.5, "red-first": 0.5, "writes-one-test": 0.5}
+        report = self.rule_change(StubRunner(without=scores, with_edit=scores))
+        self.assertTrue(report.passed, report)
+        self.assertEqual(sorted(report.eval["cases"]), sorted(scores))
+
+
+class CommandLineEvalTest(ScriptedSkill, unittest.TestCase):
+    """The CLI and model are named in pairs, on the command line."""
+
+    def gate(self, *extra: str, operations=(REFERENCE_EDIT,)) -> tuple[int, str, str]:
+        path = Path(self.tmp.name) / "proposal.json"
+        path.write_text(json.dumps(proposal(operations=list(operations))))
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch("sys.stdout", out), mock.patch("sys.stderr", err):
+            code = release_gate.main([str(path), "--project", str(self.fixture.project),
+                                      "--library-root", str(self.fixture.library),
+                                      "--evals-root", str(self.fixture.evals), *extra])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_cli_without_a_model_is_refused(self) -> None:
+        code, _, err = self.gate("--cli", "claude")
+        self.assertEqual(code, 2)
+        self.assertIn("go together", err)
+
+    def test_a_model_without_a_cli_is_refused(self) -> None:
+        code, _, err = self.gate("--model", "sonnet")
+        self.assertEqual(code, 2)
+        self.assertIn("go together", err)
+
+    def test_an_unsupported_cli_is_refused(self) -> None:
+        code, _, err = self.gate("--cli", "codex", "--model", "gpt-5")
+        self.assertEqual(code, 2)
+        self.assertIn("unsupported CLI", err)
+
+    def test_naming_a_cli_and_a_model_builds_the_runner(self) -> None:
+        with mock.patch("release_gate.ClaudePluginEval") as factory:
+            code, printed, _ = self.gate("--cli", "claude", "--model", "sonnet")
+        self.assertEqual(code, 0)
+        self.assertEqual(factory.call_args, mock.call("sonnet"))
+        self.assertIsNone(json.loads(printed)["eval"])
+
+    def test_the_runner_reaches_the_gate_and_its_scores_the_report(self) -> None:
+        self.fixture.add_cases("tdd", "red-first")
+        stub = StubRunner(without={"red-first": 0.25}, with_edit={"red-first": 0.75})
+        with mock.patch("release_gate.ClaudePluginEval", return_value=stub):
+            code, printed, _ = self.gate("--cli", "claude", "--model", "sonnet",
+                                         operations=(RULE_CHANGE,))
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(printed)["eval"], {
+            "cli": "stub-cli", "model": "stub-model",
+            "cases": {"red-first": {"without": 0.25, "with": 0.75, "delta": 0.5}},
+        })
+
+    def test_without_a_runner_a_rule_change_still_stops(self) -> None:
+        self.fixture.add_cases("tdd", "red-first")
+        code, printed, _ = self.gate(operations=(RULE_CHANGE,))
+        self.assertEqual((code, json.loads(printed)["reason"]), (1, "eval-skipped"))
 
 
 class HardeningTest(ScriptedSkill, unittest.TestCase):

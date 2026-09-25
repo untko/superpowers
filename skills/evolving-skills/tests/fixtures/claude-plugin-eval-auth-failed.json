@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.281",
+  "startedAt": "2026-09-25T20:55:09.090Z",
+  "durationSeconds": 0,
+  "costUsd": 0,
+  "partial": true,
+  "partialReason": "auth_failed",
+  "suite": {
+    "root": "/tmp/eval-plugin",
+    "ablation": "none",
+    "modelOverride": "haiku",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "greetprobe",
+        "version": "0.0.1",
+        "path": "/tmp/eval-plugin"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "greets-ahoy",
+      "dir": "evals/greets-ahoy",
+      "source": "prose",
+      "promptMarkdown": "Greet me.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 5,
+      "graders": [
+        {
+          "name": "criteria",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "The response greets with the word \"Ahoy\".",
+          "config": {
+            "criteria": "The response greets with the word \"Ahoy\".",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 0,
+            "startedAt": "2026-09-25T20:55:09.095Z",
+            "error": "exit 1: Not logged in · Please run /login",
+            "tracePath": "/tmp/eval-trace/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "criteria",
+                "passed": false,
+                "weight": 1,
+                "explanation": "grader threw: judge call failed: Failed to authenticate: OAuth session expired and could not be refreshed",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0,
+        "passRate": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 0,
+    "overallScore": 0,
+    "overallPassRate": 0
+  }
+}

@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from adapter_protocol import parse_frontmatter
+from eval_runner import ClaudePluginEval, EvalFailed, Runner, find_cases
 
 SCHEMA = "superpowers-proposal/v1"
 PROJECT_SKILL_DIRS = (".claude/skills", ".agents/skills")
@@ -36,6 +37,7 @@ class Report:
     detail: str = ""
     checks: list[str] = field(default_factory=list)  # checks passed, in order
     review: list[str] = field(default_factory=list)  # claims a human must confirm
+    eval: dict | None = None  # cli, model, and per-case scores, once an eval has run
 
 
 @dataclass(frozen=True)
@@ -119,8 +121,10 @@ def _friction_about(skill: str, project: Path) -> dict[str, dict]:
 def _has_case(skill: str, case_id: object, evals_root: Path) -> bool:
     if not _safe_name(case_id):
         return False
-    cases = evals_root / skill
-    return cases.is_dir() and any(path.stem == case_id for path in cases.iterdir())
+    try:
+        return any(case.name == case_id for case in find_cases(evals_root, skill))
+    except EvalFailed:
+        return False
 
 
 def _sufficient_evidence(skill: str, evidence: object, project: Path, evals_root: Path) -> bool:
@@ -275,8 +279,40 @@ def _classify(operations: list[dict], before: Limits) -> tuple[str, list[str]]:
     return "static", review
 
 
+def _check_rule_change(skill_dir: Path, skill_copy: Path, report: Report, *,
+                       runner: Runner | None, evals_root: Path) -> None:
+    """Score every case twice, on the original skill and on the edited copy, and reject any drop."""
+    if runner is None:
+        raise Rejected("eval-skipped", "no runner chosen")
+    try:
+        cases = find_cases(evals_root, skill_dir.name)
+        if not cases:
+            raise Rejected("untested", f"no cases under {evals_root / skill_dir.name}")
+        without = runner.score(skill_dir, cases)
+        with_edit = runner.score(skill_copy, cases)
+    except EvalFailed as failure:
+        raise Rejected("eval-failed", str(failure)) from failure
+    report.eval = {
+        "cli": runner.cli,
+        "model": runner.model,
+        "cases": {
+            case.name: {
+                "without": without[case.name],
+                "with": with_edit[case.name],
+                "delta": with_edit[case.name] - without[case.name],
+            }
+            for case in cases
+        },
+    }
+    regressed = sorted(name for name, score in report.eval["cases"].items()
+                       if score["with"] < score["without"])
+    if regressed:
+        raise Rejected("regression", f"score fell on: {', '.join(regressed)}")
+    report.checks.append("eval")
+
+
 def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: Path,
-                evals_root: Path) -> None:
+                evals_root: Path, runner: Runner | None) -> None:
     if proposal.get("schema") != SCHEMA:
         raise Rejected("schema", f"expected schema {SCHEMA}")
     skill_dir = _skill_dir(proposal.get("skill"), proposal.get("scope"), library_root, project)
@@ -308,7 +344,8 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
         _check_links(operations, skill_dir, skill_copy)
         report.checks.append("links")
         if report.kind == "rule-change":
-            raise Rejected("eval-skipped", "no runner chosen")
+            _check_rule_change(skill_dir, skill_copy, report, runner=runner, evals_root=evals_root)
+            return
         if any(_top_dir(op) == "scripts" for op in operations):
             if (skill_copy / "tests").is_dir():
                 _check_script_tests(skill_copy)
@@ -317,12 +354,13 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
                 report.review.append("scripts changed and the skill has no tests")
 
 
-def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path) -> Report:
+def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path,
+          runner: Runner | None = None) -> Report:
     """Run the gate's own checks on one proposal; the report names the first rejection."""
     report = Report(passed=False)
     try:
         _run_checks(proposal, report, library_root=library_root, project=project,
-                    evals_root=evals_root)
+                    evals_root=evals_root, runner=runner)
     except Rejected as rejection:
         report.reason, report.detail = rejection.reason, rejection.detail
         return report
@@ -337,7 +375,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project", type=Path, default=Path.cwd())
     parser.add_argument("--library-root", type=Path, default=library)
     parser.add_argument("--evals-root", type=Path, default=library.parent / "evals")
+    parser.add_argument("--cli", help="model CLI to run evals with, with --model")
+    parser.add_argument("--model", help="model to run evals with, with --cli")
     args = parser.parse_args(argv)
+    if bool(args.cli) != bool(args.model):
+        print("release-gate: --cli and --model go together", file=sys.stderr)
+        return 2
+    if args.cli and args.cli != "claude":
+        print(f"release-gate: unsupported CLI {args.cli!r}, only 'claude' runs evals", file=sys.stderr)
+        return 2
+    runner = ClaudePluginEval(args.model) if args.cli else None
     try:
         proposal = json.loads(args.proposal.read_text(encoding="utf-8"))
         if not isinstance(proposal, dict):
@@ -350,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
         library_root=args.library_root,
         project=args.project.resolve(),
         evals_root=args.evals_root,
+        runner=runner,
     )
     print(json.dumps(asdict(report), indent=2))
     return 0 if report.passed else 1
