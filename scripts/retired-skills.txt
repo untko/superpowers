@@ -1,0 +1,18 @@
+# Skills removed from this library. scripts/link-skills.sh moves any copy or
+# link with these names out of the hub and CLI skill dirs (to skills-replaced/).
+# Superseded superpowers skills (2026-09-26, mattpocock merge):
+brainstorming
+writing-plans
+executing-plans
+subagent-driven-development
+requesting-code-review
+systematic-debugging
+test-driven-development
+writing-skills
+# mattpocock skills not imported (router and handoff are covered here):
+ask-matt
+handoff
+claude-handoff
+code-review
+# Stray copies superseded by to-spec:
+prd

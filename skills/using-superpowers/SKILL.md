@@ -1,6 +1,6 @@
 ---
 name: using-superpowers
-description: Select among Superpowers workflow skills when the task needs a method and the applicable skill is unclear.
+description: Select among workflow skills when the task needs a method and the applicable skill is unclear.
 metadata:
   version: "0.1.0"
 ---
@@ -23,16 +23,39 @@ not need this router unless its assigned workflow is unclear.
 If no skill adds useful task guidance, handle the request directly. Explicit
 user requests for a skill and applicable repository routing still apply.
 
-| Task condition | Relevant method |
-| --- | --- |
-| Product behavior or a material design choice remains unresolved | `brainstorming` |
-| An observed bug needs diagnosis | `systematic-debugging` |
-| Execution dependencies need a written plan | `writing-plans` |
-| An existing plan needs execution | `executing-plans` |
-| A coding task benefits from a test-first workflow | `tdd` |
+This table is the single routing authority for this library. Each job has one
+owner. Skills marked *(user-typed)* set `disable-model-invocation`: do not load
+them yourself; name the command and let the user type it.
 
-Choose the method that resolves the current need. Do not require a fixed chain
-of brainstorming, planning, implementation, and review for every task.
+| Task condition | Skill |
+| --- | --- |
+| An idea or design choice needs interrogating before building | `grilling`; in a repo with docs, `/grill-with-docs` *(user-typed)* |
+| A settled conversation should become a spec | `/to-spec` *(user-typed)* |
+| A spec should be broken into tickets | `/to-tickets` *(user-typed)* |
+| A plan or ticket needs executing | `/implement` *(user-typed)* |
+| An observed bug or performance regression needs diagnosis | `diagnosing-bugs` |
+| A coding task benefits from a test-first workflow | `tdd` |
+| A module interface or seam needs designing | `codebase-design` |
+| Domain terminology needs pinning down, or an ADR recorded | `domain-modeling` |
+| A design question is best answered by a throwaway build | `prototype` |
+| A non-library topic needs researching into a repo file | `research` |
+| Changes since a fixed point need review against standards and spec | `review-since` |
+| Review feedback needs acting on | `receiving-code-review` |
+| A merge or rebase conflict is in progress | `resolving-merge-conflicts` |
+| Two or more independent tasks can run in parallel | `dispatching-parallel-agents` |
+| Work needs an isolated workspace | `using-git-worktrees` |
+| About to claim work is done | `verification-before-completion` |
+| A finished branch needs integrating | `finishing-a-development-branch` |
+| A session is ending or needs a handoff | `wrap-session` |
+| Steps only a human can perform | `wizard` |
+| Diagrams or visual artifacts | `creative`; Draw.io specifically, `drawio` |
+| A skill needs writing or editing | `writing-for-agents` |
+
+Choose the skill that resolves the current need. Do not require a fixed chain
+of grilling, spec, implementation, and review for every task.
+
+Several imported skills read tracker and label config written by
+`/setup-matt-pocock-skills`; if it is missing, tell the user to run it.
 
 ## Boundaries and completion
 

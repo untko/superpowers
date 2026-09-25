@@ -67,7 +67,7 @@ Match evidence to the claim:
 
 Focused evidence supports focused claims.
 
-**REQUIRED SUB-SKILL:** Use superpowers:verification-before-completion for
+**REQUIRED SUB-SKILL:** Use `verification-before-completion` for
 evidence claims.
 
 ### 5. Apply Git gates
@@ -77,7 +77,7 @@ and push separately. Commit only with explicit direction or clear local policy.
 Push requires separate explicit authorization.
 
 When completed branch disposition is needed, **REQUIRED SUB-SKILL:** Use
-superpowers:finishing-a-development-branch. Do not use it for unfinished work.
+`finishing-a-development-branch`. Do not use it for unfinished work.
 
 ### 6. Return the receipt
 

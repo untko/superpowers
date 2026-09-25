@@ -167,7 +167,7 @@ unexpected_pattern='(^superpowers/|^\.agents/|^hooks/|package\.json$|^\.git|^\.p
 assert_not_matches "$archive_paths" "$unexpected_pattern" "archive excludes source-only paths"
 assert_contains "$archive_paths" ".codex-plugin/plugin.json" "archive includes Codex manifest"
 assert_contains "$archive_paths" "skills/brainstorming/SKILL.md" "archive includes skills"
-assert_contains "$archive_paths" "skills/brainstorming/agents/openai.yaml" "archive includes OpenAI skill metadata"
+assert_contains "$archive_paths" "skills/to-spec/agents/openai.yaml" "archive includes OpenAI skill metadata"
 assert_contains "$archive_paths" "assets/app-icon.png" "archive includes app icon"
 assert_contains "$archive_paths" "assets/superpowers-small.svg" "archive includes composer icon"
 
@@ -179,7 +179,7 @@ skill_count="$(find "$extracted/skills" -mindepth 1 -maxdepth 1 -type d | wc -l 
 metadata_count="$(find "$extracted/skills" -path '*/agents/openai.yaml' -type f | wc -l | tr -d ' ')"
 assert_equals "$metadata_count" "$skill_count" "every packaged skill has OpenAI metadata"
 
-if [[ -x "$extracted/skills/subagent-driven-development/scripts/task-brief" ]]; then
+if [[ -x "$extracted/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh" ]]; then
   pass "archive preserves executable script mode"
 else
   fail "archive preserves executable script mode"
@@ -207,7 +207,7 @@ extract_archive "$tar_archive" "$tar_extracted"
 tar_archive_paths="$(list_archive "$tar_archive" | normalize_archive_paths)"
 assert_equals "$tar_archive_paths" "$archive_paths" "zip and tar.gz archives contain the same paths"
 
-tar_task_brief_mode="$(tar -tzvf "$tar_archive" skills/subagent-driven-development/scripts/task-brief | awk '{print $1}')"
+tar_task_brief_mode="$(tar -tzvf "$tar_archive" skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh | awk '{print $1}')"
 assert_equals "$tar_task_brief_mode" "-rwxr-xr-x" "tar.gz archive preserves executable script mode"
 
 tar_metadata_times="$(python3 - "$tar_archive" <<'PY'
@@ -256,8 +256,8 @@ fi
 
 incomplete_metadata="$TEST_ROOT/incomplete-metadata"
 mkdir -p "$incomplete_metadata/skills/brainstorming/agents"
-cp "$metadata_source/skills/brainstorming/agents/openai.yaml" \
-  "$incomplete_metadata/skills/brainstorming/agents/openai.yaml"
+cp "$metadata_source/skills/to-spec/agents/openai.yaml" \
+  "$incomplete_metadata/skills/to-spec/agents/openai.yaml"
 
 set +e
 missing_output="$("$SCRIPT_UNDER_TEST" --allow-dirty --metadata-source "$incomplete_metadata" --output "$TEST_ROOT/missing.tar.gz" 2>&1)"

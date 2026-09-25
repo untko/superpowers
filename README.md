@@ -199,53 +199,48 @@ pi -e /path/to/superpowers
 
 The Pi package loads the Superpowers skills and a small extension that injects the `using-superpowers` bootstrap at session startup and again after compaction. Pi has native skills, so no compatibility `Skill` tool is required. Subagent and task-list tools remain optional Pi companion packages.
 
+## This fork
+
+This is a personal fork. It is the canonical skill library on this machine,
+merged with [mattpocock/skills](https://github.com/mattpocock/skills) v1.2.3
+(see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)). Every agent CLI loads it through
+symlinks:
+
+```bash
+scripts/link-skills.sh --dry-run   # show what would change
+scripts/link-skills.sh             # link repo -> ~/.agents/skills -> each CLI
+```
+
+Run it after adding, renaming, or retiring a skill. Retired names go in
+`scripts/retired-skills.txt`. Nothing is ever deleted; displaced copies move
+to `~/.agents/skills-replaced/`.
+
 ## The Basic Workflow
 
-1. **brainstorming** - Activates before writing code. Refines rough ideas through questions, explores alternatives, presents design in sections for validation. Saves design document.
+1. **grilling** / `/grill-with-docs` - Interrogate the idea until the decisions are settled.
+2. `/to-spec` - Turn the settled conversation into a spec.
+3. `/to-tickets` - Break the spec into tracer-bullet tickets with blocking edges.
+4. `/implement` with **tdd** - Build each ticket test-first; **using-git-worktrees** isolates the work.
+5. **review-since** - Review the branch against repo standards and the spec.
+6. **finishing-a-development-branch** - Verify, then merge, PR, keep, or discard.
+7. **wrap-session** - Close out: unfinished work, durable context, proportional verification.
 
-2. **using-git-worktrees** - Activates after design approval. Creates isolated workspace on new branch, runs project setup, verifies clean test baseline.
-
-3. **writing-plans** - Activates with approved design. Breaks work into bite-sized tasks (2-5 minutes each). Every task has exact file paths, complete code, verification steps.
-
-4. **subagent-driven-development** or **executing-plans** - Activates with plan. Dispatches fresh subagent per task with two-stage review (spec compliance, then code quality), or executes in batches with human checkpoints.
-
-5. **test-driven-development** - Activates during implementation. Enforces RED-GREEN-REFACTOR: write failing test, watch it fail, write minimal code, watch it pass, commit. Deletes code written before tests.
-
-6. **requesting-code-review** - Activates between tasks. Reviews against plan, reports issues by severity. Critical issues block progress.
-
-7. **finishing-a-development-branch** - Activates when tasks complete. Verifies tests, presents options (merge/PR/keep/discard), cleans up worktree.
-
-8. **wrap-session** - Activates at session close. Checks for unfinished work, preserves only relevant durable context, verifies proportionally, and applies validated repository-local policy. Optional adapters are data files, not invokable skills.
-
-**The agent checks for relevant skills before any task.** Mandatory workflows, not suggestions.
+Routing between skills lives in one place: the table in
+[using-superpowers](skills/using-superpowers/SKILL.md).
 
 ## What's Inside
 
-### Skills Library
+**Design and planning** - grilling, grill-with-docs, grill-me, to-spec, to-tickets, to-questionnaire, codebase-design, domain-modeling, improve-codebase-architecture, prototype, research, wayfinder, teach, wait-what
 
-**Testing**
-- **test-driven-development** - RED-GREEN-REFACTOR cycle (includes testing anti-patterns reference)
+**Building** - implement, tdd, diagnosing-bugs, dispatching-parallel-agents, using-git-worktrees, resolving-merge-conflicts, wizard
 
-**Debugging**
-- **systematic-debugging** - 4-phase root cause process (includes root-cause-tracing, defense-in-depth, condition-based-waiting techniques)
-- **verification-before-completion** - Ensure it's actually fixed
+**Review and finishing** - review-since, receiving-code-review, verification-before-completion, finishing-a-development-branch, wrap-session, triage
 
-**Collaboration** 
-- **brainstorming** - Socratic design refinement
-- **writing-plans** - Detailed implementation plans
-- **executing-plans** - Batch execution with checkpoints
-- **dispatching-parallel-agents** - Concurrent subagent workflows
-- **requesting-code-review** - Pre-review checklist
-- **receiving-code-review** - Responding to feedback
-- **using-git-worktrees** - Parallel development branches
-- **finishing-a-development-branch** - Merge/PR decision workflow
-- **subagent-driven-development** - Fast iteration with two-stage review (spec compliance, then code quality)
-- **wrap-session** - Adaptive closeout and handoff workflow; optional local adapters are policy data, not invokable skills
+**Visual** - creative, drawio
 
-**Meta**
-- **writing-skills** - Create new skills following best practices (includes testing methodology)
-- **using-superpowers** - Introduction to the skills system
-- **evolving-skills** - Distill significant observations into reusable skill improvements
+**Writing** - writing-for-agents, writing-beats, writing-fragments, writing-shape
+
+**Setup and meta** - using-superpowers, evolving-skills, setup-matt-pocock-skills, setup-pre-commit, git-guardrails-claude-code, loop-me, migrate-to-shoehorn, scaffold-exercises
 
 ## Philosophy
 
