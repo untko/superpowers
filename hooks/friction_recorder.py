@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
@@ -85,7 +86,7 @@ def _skill_dirs(record: Any, library_root: Path, project: Path) -> Iterator[Path
             skill_dir = _named_skill_dir(tool_input["skill"].split(":")[-1], library_root, project)
             if skill_dir is not None:
                 yield skill_dir
-        elif isinstance(tool_input.get("file_path"), str):
+        elif block.get("name") == "Read" and isinstance(tool_input.get("file_path"), str):
             path = Path(tool_input["file_path"])
             if path.name == "SKILL.md":
                 yield path.parent
@@ -101,15 +102,21 @@ def _texts(message: Any) -> Iterator[str]:
                 yield block["text"]
 
 
+def _note_skills(
+    record: Any, skills: dict[str, dict[str, str]], library_root: Path, project: Path
+) -> None:
+    for skill_dir in _skill_dirs(record, library_root, project):
+        source = _source(skill_dir, library_root, project)
+        name = skill_dir.resolve().name
+        if source and name not in skills:
+            skills[name] = {"name": name, "source": source}
+
+
 def loaded_skills(records: list[Any], library_root: Path, project: Path) -> list[dict[str, str]]:
     """Skills loaded in the session (Skill tool, slash command, or SKILL.md read), first-load order."""
     skills: dict[str, dict[str, str]] = {}
     for record in records:
-        for skill_dir in _skill_dirs(record, library_root, project):
-            source = _source(skill_dir, library_root, project)
-            name = skill_dir.resolve().name
-            if source and name not in skills:
-                skills[name] = {"name": name, "source": source}
+        _note_skills(record, skills, library_root, project)
     return list(skills.values())
 
 
@@ -118,14 +125,31 @@ def _excerpt(value: Any) -> str:
     return text[:EXCERPT_LIMIT]
 
 
-def _event_id(session: Any, kind: str, key: Any, text: str) -> str:
+@dataclass(frozen=True)
+class Friction:
+    id: str
+    kind: str
+    excerpt: str
+    skills: list[dict[str, str]] | None  # None: the session's skills as of the hook call
+
+
+def _friction_event(
+    session: Any, kind: str, key: Any, text: str, skills: list[dict[str, str]] | None = None
+) -> Friction:
+    """Build friction whose id is stable across the live hook and the Stop sweep."""
+    excerpt = _excerpt(text)
     if not isinstance(key, str) or not key:
-        key = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-    return f"{session}:{kind}:{key}"
+        key = hashlib.sha256(excerpt.encode("utf-8")).hexdigest()[:16]
+    return Friction(f"{session}:{kind}:{key}", kind, excerpt, skills)
 
 
 def _is_correction(text: Any) -> bool:
-    return isinstance(text, str) and bool(_CORRECTION.search(text))
+    """A correction-worded prompt the user typed; tag-wrapped harness messages are not."""
+    return (
+        isinstance(text, str)
+        and not text.lstrip().startswith("<")
+        and bool(_CORRECTION.search(text))
+    )
 
 
 def _human_prompt(record: Any) -> str | None:
@@ -142,46 +166,61 @@ def _human_prompt(record: Any) -> str | None:
         if any(isinstance(b, dict) and b.get("type") != "text" for b in content):
             return None
         content = "\n".join(b.get("text", "") for b in content if isinstance(b, dict))
-    if not isinstance(content, str) or content.lstrip().startswith("<"):
-        return None
-    return content
+    return content if isinstance(content, str) else None
 
 
-def _swept_friction(records: list[Any], session: Any) -> list[tuple[str, str, str]]:
+def _swept_friction(
+    records: list[Any], session: Any, library_root: Path, project: Path
+) -> list[Friction]:
+    """All friction in the transcript, each tagged with the skills loaded before it."""
     friction = []
+    skills: dict[str, dict[str, str]] = {}
     for record in records:
+        _note_skills(record, skills, library_root, project)
         prompt = _human_prompt(record)
         if prompt is not None:
             if _is_correction(prompt):
-                key = record.get("promptId")
-                friction.append((_event_id(session, "correction", key, prompt), "correction", _excerpt(prompt)))
+                friction.append(
+                    _friction_event(
+                        session, "correction", record.get("promptId"), prompt, list(skills.values())
+                    )
+                )
             continue
         if not isinstance(record, dict) or record.get("type") != "user":
             continue
         content = (record.get("message") or {}).get("content")
         for block in content if isinstance(content, list) else []:
             if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error"):
-                error = _excerpt(block.get("content") or "")
-                key = block.get("tool_use_id")
-                friction.append((_event_id(session, "tool-failure", key, error), "tool-failure", error))
+                friction.append(
+                    _friction_event(
+                        session,
+                        "tool-failure",
+                        block.get("tool_use_id"),
+                        block.get("content") or "",
+                        list(skills.values()),
+                    )
+                )
     return friction
 
 
-def _friction(payload: Mapping[str, Any], records: list[Any]) -> list[tuple[str, str, str]]:
-    """Return (id, kind, excerpt) triples for the friction this payload reports."""
+def _friction(
+    payload: Mapping[str, Any], records: list[Any], library_root: Path, project: Path
+) -> list[Friction]:
+    """The friction this payload reports."""
     event = payload.get("hook_event_name")
     session = payload.get("session_id")
     if event == "PostToolUseFailure":
-        error = _excerpt(payload.get("error") or "")
-        key = payload.get("tool_use_id")
-        return [(_event_id(session, "tool-failure", key, error), "tool-failure", error)]
+        return [
+            _friction_event(
+                session, "tool-failure", payload.get("tool_use_id"), payload.get("error") or ""
+            )
+        ]
     if event == "UserPromptSubmit":
         prompt = payload.get("prompt")
         if _is_correction(prompt):
-            key = payload.get("prompt_id")
-            return [(_event_id(session, "correction", key, prompt), "correction", _excerpt(prompt))]
+            return [_friction_event(session, "correction", payload.get("prompt_id"), prompt)]
     if event == "Stop":
-        return _swept_friction(records, session)
+        return _swept_friction(records, session, library_root, project)
     return []
 
 
@@ -207,29 +246,31 @@ def record(
     now: str | None = None,
 ) -> list[dict[str, Any]]:
     """Append this payload's new friction events to the project log and return them."""
+    project = Path(payload.get("cwd") or ".").resolve()
     records = _read_transcript(payload.get("transcript_path"))
-    friction = _friction(payload, records)
+    friction = _friction(payload, records, library_root, project)
     if not friction:
         return []
-    project = Path(payload.get("cwd") or ".").resolve()
     log = project / ".superpowers" / LOG_NAME
     seen = _logged_ids(log)
-    skills = loaded_skills(records, library_root, project)
     timestamp = now or datetime.now(timezone.utc).isoformat()
+    session_skills = None
     events = []
-    for event_id, kind, excerpt in friction:
-        if event_id in seen:
+    for item in friction:
+        if item.id in seen:
             continue
-        seen.add(event_id)
+        seen.add(item.id)
+        if item.skills is None and session_skills is None:
+            session_skills = loaded_skills(records, library_root, project)
         events.append(
             {
-                "id": event_id,
-                "kind": kind,
+                "id": item.id,
+                "kind": item.kind,
                 "timestamp": timestamp,
                 "harness": harness,
                 "session_id": payload.get("session_id"),
-                "skills": skills,
-                "excerpt": excerpt,
+                "skills": session_skills if item.skills is None else item.skills,
+                "excerpt": item.excerpt,
             }
         )
     if events:

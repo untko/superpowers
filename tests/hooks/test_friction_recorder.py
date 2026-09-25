@@ -270,3 +270,51 @@ def test_user_typed_skill_is_attributed_from_its_injected_base_directory(tmp_pat
     record(payload, library_root=library, harness="claude-code", now=NOW)
 
     assert _events(project)[0]["skills"] == [{"name": "implement", "source": "global"}]
+
+
+def test_harness_injected_prompt_is_not_a_correction(tmp_path):
+    project, library = _setup(tmp_path)
+
+    record(
+        _prompt_payload(project, '<agent-message from="a1">\nDon\'t retry; the fix is wrong.\n</agent-message>'),
+        library_root=library,
+        harness="claude-code",
+        now=NOW,
+    )
+
+    assert _events(project) == []
+
+
+def test_editing_a_skill_file_does_not_count_as_loading_it(tmp_path):
+    project, library = _setup(tmp_path)
+    transcript = _write_transcript(
+        tmp_path / "t.jsonl",
+        [
+            _tool_use("Edit", {"file_path": str(library / "tdd" / "SKILL.md")}),
+            _tool_use("Write", {"file_path": str(library / "tdd" / "SKILL.md")}),
+        ],
+    )
+    payload = _prompt_payload(project, "that's wrong")
+    payload["transcript_path"] = str(transcript)
+
+    record(payload, library_root=library, harness="claude-code", now=NOW)
+
+    assert _events(project)[0]["skills"] == []
+
+
+def test_stop_sweep_tags_each_event_with_skills_loaded_before_it(tmp_path):
+    project, library = _setup(tmp_path)
+    transcript = _write_transcript(
+        tmp_path / "t.jsonl",
+        [
+            _human("That's wrong before any skill.", "p1"),
+            _tool_use("Skill", {"skill": "tdd"}),
+            _human("Still wrong after tdd.", "p2"),
+        ],
+    )
+    stop = {"hook_event_name": "Stop", "session_id": "s1", "cwd": str(project),
+            "transcript_path": str(transcript)}
+
+    record(stop, library_root=library, harness="claude-code", now=NOW)
+
+    assert [[s["name"] for s in e["skills"]] for e in _events(project)] == [[], ["tdd"]]
