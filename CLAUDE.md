@@ -113,3 +113,17 @@ Before proposing changes to skill design, workflow philosophy, or architecture, 
 - One problem per PR
 - Test on at least one harness and report results in the environment table
 - Describe the problem you solved, not just what you changed
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues on `untko/superpowers`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
