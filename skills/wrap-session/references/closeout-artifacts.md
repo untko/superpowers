@@ -31,10 +31,12 @@ A cold-start handoff contains:
 
 ## Significant Observations
 
-Use the `superpowers-observation/v1` contract. Capture reported runtime, global
-skill contract `1`, adapter status, phase, expected and actual behavior,
-minimal evidence, diagnosis, and candidate scope/target/status. Use `unknown`
-for unavailable provenance; never infer it.
+Use the `superpowers-observation/v1` contract — see
+[observation-format.md](observation-format.md) for the exact frontmatter,
+filename convention, status lifecycle, and body sections. Capture reported
+runtime, global skill contract `1`, adapter status, phase, expected and actual
+behavior, minimal evidence, diagnosis, and candidate scope/target/status. Use
+`unknown` for unavailable provenance; never infer it.
 
 Raw evidence stays in the active repository. Promotion into the global library
 happens only during an explicitly authorized global `evolving-skills` run.

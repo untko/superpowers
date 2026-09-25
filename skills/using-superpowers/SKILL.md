@@ -1,79 +1,56 @@
 ---
 name: using-superpowers
-description: Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions
+description: Select among Superpowers workflow skills when the task needs a method and the applicable skill is unclear.
+metadata:
+  version: "0.1.0"
 ---
 
-<SUBAGENT-STOP>
-If you were dispatched as a subagent to execute a specific task, ignore this skill.
-</SUBAGENT-STOP>
+# Select a workflow skill
 
-<EXTREMELY-IMPORTANT>
-If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
+Use this router when skill selection is unclear. If the task already names an
+applicable skill, read that skill directly. A bounded subagent assignment does
+not need this router unless its assigned workflow is unclear.
 
-IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
+## Selection
 
-This is not negotiable. You cannot rationalize your way out of this.
-</EXTREMELY-IMPORTANT>
+1. Identify the requested outcome and any applicable repository instructions.
+2. Match the task to a skill's actual capability and trigger. A shared keyword
+   alone does not establish relevance.
+3. Read the selected skill before using its workflow. Announce its purpose
+   briefly, without loading other skills merely to explain the selection.
+4. Read supporting references only when their stated condition applies.
 
-## The Rule
+If no skill adds useful task guidance, handle the request directly. Explicit
+user requests for a skill and applicable repository routing still apply.
 
-**Invoke relevant or requested skills BEFORE any response or action** — including clarifying questions, exploring the codebase, or checking files. If it turns out wrong for the situation, you don't have to use it.
+| Task condition | Relevant method |
+| --- | --- |
+| Product behavior or a material design choice remains unresolved | `brainstorming` |
+| An observed bug needs diagnosis | `systematic-debugging` |
+| Execution dependencies need a written plan | `writing-plans` |
+| An existing plan needs execution | `executing-plans` |
+| A coding task benefits from a test-first workflow | `tdd` |
 
-**Before entering plan mode:** if you haven't already brainstormed, invoke the brainstorming skill first.
+Choose the method that resolves the current need. Do not require a fixed chain
+of brainstorming, planning, implementation, and review for every task.
 
-Then announce "Using [skill] to [purpose]" and follow the skill exactly. If it has a checklist, create a todo per item.
+## Boundaries and completion
 
-## Skill Priority
+Skills support the user's scope and existing authorization. They do not grant
+permission for additional actions. Repository evidence rules, ownership limits,
+and approval gates remain binding.
 
-When multiple skills apply, process skills come first — they set the approach, then implementation skills (frontend-design, etc.) carry it out. Brainstorming and systematic-debugging are Superpowers' most common process skills, but the rule holds for any of them.
+Selection is complete when the applicable workflow is known. Continue the
+requested task through its completion criteria, without asking the user to
+approve skill selection or repeating an approval already provided.
 
-- "Let's build X" → superpowers:brainstorming first, then implementation skills.
-- "Fix this bug" → superpowers:systematic-debugging first, then domain skills.
+For harness-specific mechanics, read only the relevant reference when needed:
 
-## Red Flags
+- Codex delegation or Git environment handling: [Codex tools](references/codex-tools.md).
+- Pi tool adaptation: [Pi tools](references/pi-tools.md).
+- Antigravity tool adaptation: [Antigravity tools](references/antigravity-tools.md).
+- Gemini tool adaptation: [Gemini tools](references/gemini-tools.md).
 
-These thoughts mean STOP—you're rationalizing:
-
-| Thought | Reality |
-|---------|---------|
-| "This is just a simple question" | Questions are tasks. Check for skills. |
-| "I need more context first" | Skill check comes BEFORE clarifying questions. |
-| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
-| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
-| "Let me gather information first" | Skills tell you HOW to gather information. |
-| "This doesn't need a formal skill" | If a skill exists, use it. |
-| "I remember this skill" | Skills evolve. Read current version. |
-| "This doesn't count as a task" | Action = task. Check for skills. |
-| "The skill is overkill" | Simple things become complex. Use it. |
-| "I'll just do this one thing first" | Check BEFORE doing anything. |
-| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
-| "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
-
-## Fast-Loop Observation Logging (Self-Updating Skills)
-
-When executing any superpower skill, if you catch yourself using a new rationalization, hitting an ambiguous instruction, or encountering unexpected process friction:
-
-- **Do NOT block the user's task.** Continue executing the task cleanly.
-- For significant reusable friction, run from the
-  installed `superpowers:evolving-skills` skill directory — `python3
-  scripts/new_observation.py --project-root <root> --skill <name> --phase
-  <phase> --expected <text> --actual <text> --evidence <text>`, plus
-  `--model`/`--harness` when known and `--archive-now` when no follow-up is
-  needed. It derives provenance; never hand-write YAML. Contract: the
-  reference shipped with that installed skill. Mention the path in your result.
-- Ordinary runs neither edit global skills nor scan history; local notes only
-  observe and propose.
-
-
-## Platform Adaptation
-
-If your harness appears here, read its reference file for special instructions:
-
-- Codex: `references/codex-tools.md`
-- Pi: `references/pi-tools.md`
-- Antigravity: `references/antigravity-tools.md`
-- Gemini: `references/gemini-tools.md`
-
-## User Instructions
-
-User instructions (CLAUDE.md, AGENTS.md, GEMINI.md, etc, direct requests) take precedence over skills, which in turn override default behavior. Only skip skill workflows or instructions when your human partner has explicitly told you to.
+For authorized skill maintenance, use the available `evolving-skills` workflow
+to record demonstrated, reusable friction. Ordinary task execution does not
+require an archive scan, observation write, or global skill edit.

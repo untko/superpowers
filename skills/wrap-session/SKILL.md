@@ -48,9 +48,11 @@ next action; follow explicit WIP Git direction.
 
 Use [artifact decisions](references/closeout-artifacts.md) to update only
 artifacts materially affected. Record significant reusable friction, minimally
-sanitized, in `.superpowers/observations/pending/`; never scan history, invent
-provenance, promote a proposal, or edit another repository. Put an unwritable
-proposed note in the receipt. Ask when the durable destination is ambiguous.
+sanitized, in `.superpowers/observations/pending/` following the
+[observation format](references/observation-format.md); never scan history,
+invent provenance, promote a proposal, or edit another repository. Put an
+unwritable proposed note in the receipt. Ask when the durable destination is
+ambiguous.
 
 ### 4. Verify proportionally
 
