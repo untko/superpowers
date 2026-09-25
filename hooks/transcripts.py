@@ -160,8 +160,14 @@ def _opencode_tool(part: dict) -> list[dict]:
         file_path = tool_input.get("filePath")
         if isinstance(file_path, str) and file_path.endswith("SKILL.md"):
             records.append(_read_load(file_path))
+    metadata = state.get("metadata")
+    exit_code = metadata.get("exit") if isinstance(metadata, dict) else None
     if state.get("status") == "error":
         records.append(_failure(part.get("callID"), _text(state.get("error"))))
+    elif isinstance(exit_code, int) and exit_code != 0:
+        # opencode reports a failed bash command as completed with a non-zero exit.
+        output = _text(metadata.get("output")) or _text(state.get("output"))
+        records.append(_failure(part.get("callID"), f"exit {exit_code}: {output}"))
     return records
 
 

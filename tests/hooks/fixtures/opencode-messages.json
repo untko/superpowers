@@ -22,7 +22,7 @@
     "info": {"id": "msg_4", "role": "assistant", "sessionID": "ses_1"},
     "parts": [
       {"type": "tool", "tool": "bash", "callID": "call_2",
-       "state": {"status": "error", "error": "exit 1: no tests collected", "input": {"command": "python3 -m pytest"}}}
+       "state": {"status": "completed", "output": "no tests collected", "metadata": {"exit": 1, "output": "no tests collected"}, "input": {"command": "python3 -m pytest"}}}
     ]
   },
   {
