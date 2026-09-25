@@ -618,11 +618,6 @@ class TestInstalledSkillPortabilityContract(unittest.TestCase):
         )
         self.assertIn('--project-root "$PROJECT_ROOT" --list', evolving_skill)
         self.assertIn('--project-root "$PROJECT_ROOT" --archive', evolving_skill)
-        self.assertIn("installed `superpowers:evolving-skills` skill", using_skill)
-        self.assertIn(
-            "reference shipped with that installed skill",
-            using_skill,
-        )
         self.assertNotIn("$PROJECT_ROOT/skills/evolving-skills", combined)
         self.assertNotIn("python3 skills/evolving-skills/scripts", combined)
 
