@@ -7,8 +7,9 @@ node_modules/
 inspo
 /triage/
 
-# Eval harness lives in its own repository, cloned into evals/ for local
-# development (see CLAUDE.md / README.md). It is not part of the published
-# plugin, so the whole directory is ignored here.
-/evals/
+# Skill eval cases live in evals/<skill>/ and are tracked. The drill harness
+# lives in its own repository, cloned into superpowers-evals/ for local
+# development (see CLAUDE.md / README.md); it is not part of the plugin.
+/superpowers-evals/
+/evals/**/results/
 __pycache__/

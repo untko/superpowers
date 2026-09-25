@@ -23,7 +23,10 @@ from pathlib import Path
 argv = sys.argv[1:]
 shutil.copytree(argv[2], Path(os.environ["FAKE_CLAUDE_KEEP"]), symlinks=True)
 Path(os.environ["FAKE_CLAUDE_ARGV"]).write_text("\\n".join(argv))
-Path(argv[argv.index("--json") + 1]).write_text(Path(os.environ["FAKE_CLAUDE_REPORT"]).read_text())
+report = Path(os.environ["FAKE_CLAUDE_REPORT"])
+if not report.exists():
+    sys.exit("Error: Not logged in")
+Path(argv[argv.index("--json") + 1]).write_text(report.read_text())
 sys.exit({exit_code})
 """
 
@@ -205,6 +208,12 @@ class ClaudePluginEvalTest(unittest.TestCase):
         with self.assertRaises(eval_runner.EvalFailed) as failure:
             self.score()
         self.assertIn("no readable eval report", str(failure.exception))
+
+    def test_a_missing_report_carries_what_the_cli_said(self) -> None:
+        self.fake.report.unlink()
+        with self.assertRaises(eval_runner.EvalFailed) as failure:
+            self.score()
+        self.assertIn("Not logged in", str(failure.exception))
 
     def test_an_unreadable_report_is_a_failure(self) -> None:
         self.fake_cli("{not json")

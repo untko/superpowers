@@ -68,10 +68,16 @@ class ClaudePluginEval:
                     "--no-publish", "--trust-plugin"]
             try:
                 # A score below the CLI's own threshold exits 1; the report is the only verdict.
-                subprocess.run(argv, cwd=work, capture_output=True, text=True, timeout=EVAL_TIMEOUT)
+                run = subprocess.run(argv, cwd=work, capture_output=True, text=True,
+                                     timeout=EVAL_TIMEOUT)
             except (OSError, subprocess.TimeoutExpired) as failure:
                 raise EvalFailed(f"{self.cli} plugin eval did not finish: {failure}") from failure
-            return _scores(result, cases)
+            try:
+                return _scores(result, cases)
+            except EvalFailed as failure:
+                if result.exists() or not run.stderr.strip():
+                    raise
+                raise EvalFailed(f"{failure}; stderr: {run.stderr.strip()[-500:]}") from failure
 
 
 def _stage(plugin: Path, skill_dir: Path, cases: list[Path]) -> None:
