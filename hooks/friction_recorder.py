@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+if __package__:  # imported as hooks.friction_recorder
+    from . import transcripts
+else:  # hook entry point: python3 hooks/friction_recorder.py
+    import transcripts
+
 EXCERPT_LIMIT = 500
 LOG_NAME = "friction.jsonl"
 
@@ -32,20 +37,9 @@ def _iter_tool_blocks(value: Any) -> Iterator[dict[str, Any]]:
             yield from _iter_tool_blocks(child)
 
 
-def _read_transcript(path: str | None) -> list[Any]:
-    if not path:
-        return []
-    records = []
-    try:
-        with open(path, encoding="utf-8") as handle:
-            for line in handle:
-                try:
-                    records.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-    except OSError:
-        return []
-    return records
+def _read_transcript(path: str | None, harness: str) -> list[Any]:
+    """This harness's transcript as the records the recorder reads, whatever the CLI."""
+    return transcripts.normalize(harness, path)
 
 
 _PROJECT_SKILL_DIRS = (".claude/skills", ".agents/skills")
@@ -247,7 +241,7 @@ def record(
 ) -> list[dict[str, Any]]:
     """Append this payload's new friction events to the project log and return them."""
     project = Path(payload.get("cwd") or ".").resolve()
-    records = _read_transcript(payload.get("transcript_path"))
+    records = _read_transcript(payload.get("transcript_path"), harness)
     friction = _friction(payload, records, library_root, project)
     if not friction:
         return []

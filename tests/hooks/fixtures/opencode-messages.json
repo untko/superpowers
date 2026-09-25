@@ -1,0 +1,48 @@
+[
+  {
+    "info": {"id": "msg_1", "role": "user", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "text", "text": "Add a login page with email and password. The checklist is in @@DECOY_SKILL_MD@@."}
+    ]
+  },
+  {
+    "info": {"id": "msg_2", "role": "assistant", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "tool", "tool": "skill", "callID": "call_1",
+       "state": {"status": "completed", "input": {"name": "tdd"}, "output": "loaded"}}
+    ]
+  },
+  {
+    "info": {"id": "msg_3", "role": "user", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "text", "synthetic": true, "text": "<system-reminder>Don't retry; that fix is wrong.</system-reminder>"}
+    ]
+  },
+  {
+    "info": {"id": "msg_4", "role": "assistant", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "tool", "tool": "bash", "callID": "call_2",
+       "state": {"status": "error", "error": "exit 1: no tests collected", "input": {"command": "python3 -m pytest"}}}
+    ]
+  },
+  {
+    "info": {"id": "msg_5", "role": "assistant", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "tool", "tool": "read", "callID": "call_3",
+       "state": {"status": "completed", "input": {"filePath": "@@LOCAL_SKILL_MD@@"}}}
+    ]
+  },
+  {
+    "info": {"id": "msg_6", "role": "assistant", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "tool", "tool": "read", "callID": "call_4",
+       "state": {"status": "completed", "input": {"filePath": "/tmp/project/README.md"}}}
+    ]
+  },
+  {
+    "info": {"id": "msg_7", "role": "user", "sessionID": "ses_1"},
+    "parts": [
+      {"type": "text", "text": "No, that's wrong: the test must fail first."}
+    ]
+  }
+]

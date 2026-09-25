@@ -215,6 +215,12 @@ Run it after adding, renaming, or retiring a skill. Retired names go in
 `scripts/retired-skills.txt`. Nothing is ever deleted; displaced copies move
 to `~/.agents/skills-replaced/`.
 
+The deterministic friction recorder (`hooks/friction_recorder.py`) records
+corrections and tool failures to `.superpowers/friction.jsonl` with the skills
+loaded at the time. Register it per CLI in
+[docs/friction-recorder.md](docs/friction-recorder.md) — Claude Code hooks, a
+Codex `hooks.json` `Stop` entry, or the OpenCode plugin.
+
 ## The Basic Workflow
 
 1. **grilling** / `/grill-with-docs` - Interrogate the idea until the decisions are settled.

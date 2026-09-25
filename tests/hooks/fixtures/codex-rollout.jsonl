@@ -1,0 +1,8 @@
+{"timestamp":"2026-09-26T09:00:00.000Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"Available skills:\n- @@DECOY_SKILL_MD@@\n- @@SKILL_MD@@\nRead the matching one before you start."}]}}
+{"timestamp":"2026-09-26T09:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<user_instructions>Never read @@DECOY_SKILL_MD@@; that is wrong.</user_instructions>"}]}}
+{"timestamp":"2026-09-26T09:00:02.000Z","type":"event_msg","payload":{"type":"user_message","message":"Add a login page with email and password."}}
+{"timestamp":"2026-09-26T09:00:03.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"read_file","call_id":"call_1","input":"{\"file_path\":\"@@SKILL_MD@@\"}"}}
+{"timestamp":"2026-09-26T09:00:07.000Z","type":"event_msg","payload":{"type":"item_completed","item":{"id":"item_1","type":"CommandExecution","status":"failed","command":"python3 -m pytest","exit_code":1,"stderr":"E   ModuleNotFoundError: No module named 'pytest'","aggregated_output":""}}}
+{"timestamp":"2026-09-26T09:00:09.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The test command is missing its dependency."}]}}
+{"timestamp":"2026-09-26T09:00:12.000Z","type":"response_item","payload":{"type":"function_call","name":"read_skill","call_id":"call_2","arguments":"{\"path\":\"@@LOCAL_SKILL_MD@@\"}"}}
+{"timestamp":"2026-09-26T09:00:20.000Z","type":"event_msg","payload":{"type":"user_message","message":"No, that's wrong: the test must fail first."}}
