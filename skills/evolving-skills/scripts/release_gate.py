@@ -121,10 +121,7 @@ def _friction_about(skill: str, project: Path) -> dict[str, dict]:
 def _has_case(skill: str, case_id: object, evals_root: Path) -> bool:
     if not _safe_name(case_id):
         return False
-    try:
-        return any(case.name == case_id for case in find_cases(evals_root, skill))
-    except EvalFailed:
-        return False
+    return any(case.name == case_id for case in find_cases(evals_root, skill))
 
 
 def _sufficient_evidence(skill: str, evidence: object, project: Path, evals_root: Path) -> bool:
@@ -280,10 +277,8 @@ def _classify(operations: list[dict], before: Limits) -> tuple[str, list[str]]:
 
 
 def _check_rule_change(skill_dir: Path, skill_copy: Path, report: Report, *,
-                       runner: Runner | None, evals_root: Path) -> None:
+                       runner: Runner, evals_root: Path) -> None:
     """Score every case twice, on the original skill and on the edited copy, and reject any drop."""
-    if runner is None:
-        raise Rejected("eval-skipped", "no runner chosen")
     try:
         cases = find_cases(evals_root, skill_dir.name)
         if not cases:
@@ -322,7 +317,11 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
     if not _itemized(proposal.get("operations")):
         raise Rejected("not-itemized", "operations must each add, change, or remove one line")
     report.checks.append("itemized")
-    if not _sufficient_evidence(skill_dir.name, proposal.get("evidence"), project, evals_root):
+    try:
+        sufficient = _sufficient_evidence(skill_dir.name, proposal.get("evidence"), project, evals_root)
+    except EvalFailed as failure:  # a malformed case tree, not missing evidence
+        raise Rejected("eval-failed", str(failure)) from failure
+    if not sufficient:
         raise Rejected(
             "insufficient-evidence",
             "cite a correction, a failing case, or the same friction in two sessions",
@@ -343,15 +342,16 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
         report.checks.append("budget")
         _check_links(operations, skill_dir, skill_copy)
         report.checks.append("links")
-        if report.kind == "rule-change":
-            _check_rule_change(skill_dir, skill_copy, report, runner=runner, evals_root=evals_root)
-            return
+        if report.kind == "rule-change" and runner is None:
+            raise Rejected("eval-skipped", "no runner chosen")
         if any(_top_dir(op) == "scripts" for op in operations):
             if (skill_copy / "tests").is_dir():
                 _check_script_tests(skill_copy)
                 report.checks.append("script-tests")
             else:
                 report.review.append("scripts changed and the skill has no tests")
+        if report.kind == "rule-change":
+            _check_rule_change(skill_dir, skill_copy, report, runner=runner, evals_root=evals_root)
 
 
 def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path,

@@ -50,8 +50,8 @@ evals/tdd/
     graders/criteria.md                   # what a passing answer looks like
 ```
 
-Cases with no `prompt.md` are ignored, and two cases with one name are an
-error. Ids are unique across the categories, because the name alone is the id.
+A directory with neither file is not a case. The name alone is the id, so
+ids are unique across categories; two cases with one name are `eval-failed`.
 
 ## Frozen anchors and word budget
 
@@ -72,16 +72,18 @@ but not grow. Only the body after the frontmatter counts.
 
 Rejection reasons, in check order: `schema`, `scope`, `not-itemized`,
 `insufficient-evidence`, `anchor`, `budget`, `links`, `eval-skipped`,
-`untested`, `eval-failed`, `regression`, `script-tests`.
+`script-tests`, `untested`, `eval-failed`, `regression`.
 Operations confined to `references/` or `scripts/`, and claimed rewordings,
 are `static` and finish after the checks above, without a model. Any other
 edit is a `rule-change`: it runs every case of the skill once on the
 unedited skill and once on the edited copy, and stops with `eval-skipped`
 until you name a CLI and a model. A case that scores lower with the edit is a
 `regression`; a skill with no cases is `untested`; a CLI that cannot answer is
-`eval-failed`, never a score of zero. A static edit under `scripts/` runs the
-skill's own tests on the edited copy, so it executes the proposed code as you:
-read it before running the gate.
+`eval-failed`, never a score of zero. Each arm is one run, so a single case
+can flip on grader noise: rerun a surprising `regression` before trusting it.
+An edit under `scripts/` runs the skill's own tests on the edited copy, before
+any eval, so it executes the proposed code as you: read it before running the
+gate.
 
 The report carries the scores in `eval`, so a rejected regression is still
 auditable:

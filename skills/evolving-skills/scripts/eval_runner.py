@@ -109,7 +109,8 @@ def _scores(result: Path, cases: list[Path]) -> dict[str, float]:
         for run in runs:
             if run.get("error"):
                 raise EvalFailed(f"case {case.get('name')}: {run['error']}")
-        marks = [run["score"] for run in arms.get("with") or [] if isinstance(run.get("score"), (int, float))]
+        marks = [run["score"] for run in arms.get("with") or []
+                 if isinstance(run, dict) and isinstance(run.get("score"), (int, float))]
         if not marks:
             raise EvalFailed(f"case {case.get('name')} has no scored run")
         scored[case.get("name")] = statistics.fmean(marks)

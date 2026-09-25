@@ -500,6 +500,22 @@ class RuleChangeEvalTest(ScriptedSkill, unittest.TestCase):
             "writes-one-test": {"without": 0.5, "with": 0.75, "delta": 0.25},
         })
 
+    def test_a_rule_change_that_breaks_its_scripts_is_rejected_before_any_eval(self) -> None:
+        report = self.fixture.check(proposal(operations=[
+            RULE_CHANGE,
+            {"op": "change", "file": "scripts/tool.py", "line": "return 42", "to": "return 41"},
+        ]), runner=self.runner)
+        self.assertEqual(report.reason, "script-tests")
+        self.assertEqual(self.runner.calls, [])
+
+    def test_two_cases_with_one_id_are_an_eval_failure_even_as_evidence(self) -> None:
+        self.fixture.add_cases("tdd", "quality/dup", "triggering/dup")
+        report = self.fixture.check(proposal(operations=[RULE_CHANGE],
+                                             evidence=[{"type": "case", "id": "dup"}]),
+                                    runner=self.runner)
+        self.assertEqual(report.reason, "eval-failed")
+        self.assertIn("dup", report.detail)
+
     def test_a_runner_failure_is_never_a_score_of_zero(self) -> None:
         report = self.rule_change(StubRunner(failure="auth_failed"))
         self.assertEqual((report.reason, report.detail), ("eval-failed", "auth_failed"))

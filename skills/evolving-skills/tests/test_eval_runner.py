@@ -220,6 +220,13 @@ class ClaudePluginEvalTest(unittest.TestCase):
         with self.assertRaises(eval_runner.EvalFailed):
             self.score()
 
+    def test_it_reads_a_real_scored_report(self) -> None:
+        case = self.root / "evals" / "tdd" / "quality" / "seams-agreed-first"
+        shutil.copytree(self.case, case)
+        self.fake_cli((FIXTURES / "claude-plugin-eval-scored.json").read_text())
+        runner = eval_runner.ClaudePluginEval("haiku")
+        self.assertEqual(runner.score(self.skill, [case]), {"seams-agreed-first": 1.0})
+
     def test_a_partial_run_is_a_failure_naming_its_reason(self) -> None:
         report = json.loads((FIXTURES / "claude-plugin-eval-auth-failed.json").read_text())
         self.assertTrue(report["partial"])
@@ -236,6 +243,11 @@ class ClaudePluginEvalTest(unittest.TestCase):
             self.score()
         self.assertIn("red-first", str(failure.exception))
         self.assertIn("Not logged in", str(failure.exception))
+
+    def test_a_run_that_is_not_an_object_is_a_failure_not_a_crash(self) -> None:
+        self.fake_cli({"partial": False, "cases": [{"name": "red-first", "arms": {"with": ["boom"]}}]})
+        with self.assertRaises(eval_runner.EvalFailed):
+            self.score()
 
     def test_a_missing_case_is_a_failure(self) -> None:
         self.fake_cli(scored({"writes-one-test": 0.75}))

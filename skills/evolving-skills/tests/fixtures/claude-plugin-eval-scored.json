@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.281",
+  "startedAt": "2026-09-25T21:09:03.577Z",
+  "durationSeconds": 10,
+  "costUsd": 0.021475,
+  "partial": false,
+  "suite": {
+    "root": "/tmp/eval/plugin",
+    "ablation": "none",
+    "modelOverride": "haiku",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "tdd-eval",
+        "version": "0.0.0",
+        "path": "/tmp/eval/plugin"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "seams-agreed-first",
+      "dir": "evals/seams-agreed-first",
+      "source": "prose",
+      "promptMarkdown": "Let's do this test-first. I need a `slugify(title)` function for our blog: lowercase, words joined by hyphens, punctuation dropped. Go.",
+      "runsPerCase": 3,
+      "timeoutSeconds": 300,
+      "maxTurns": 6,
+      "graders": [
+        {
+          "name": "criteria",
+          "type": "llm",
+          "weight": 1,
+          "graderMarkdown": "Before writing or showing any test code, the response names the public interface or seam it intends to test (for example the `slugify` function's input and output) and asks the user to confirm it. A response that starts with test code, or writes tests without asking which seams to test, fails.",
+          "config": {
+            "criteria": "Before writing or showing any test code, the response names the public interface or seam it intends to test (for example the `slugify` function's input and output) and asks the user to confirm it. A response that starts with test code, or writes tests without asking which seams to test, fails.",
+            "focus": "last_message"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 3,
+            "costUsd": 0.021475,
+            "judgeCostUsd": 0.0007559999999999999,
+            "durationSeconds": 10,
+            "startedAt": "2026-09-25T21:09:03.612Z",
+            "error": null,
+            "tracePath": "/tmp/run/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "criteria",
+                "passed": true,
+                "weight": 1,
+                "explanation": "judge votes: PASS PASS PASS",
+                "withOnly": false,
+                "scored": true,
+                "judgeVotes": [
+                  true,
+                  true,
+                  true
+                ],
+                "evidence": "Before we write the first test, let me confirm the seam: is `slugify(title: string): string` the public interface? And should the tests be in a `.test.js`/`.spec.js` file alongside implementation, or is there an existing test structure?\n\nOnce you confirm, we'll start red → green: one failing test, then minimal code to pass it."
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 1,
+    "casesPassed": 1,
+    "overallScore": 1,
+    "overallPassRate": 1
+  }
+}
