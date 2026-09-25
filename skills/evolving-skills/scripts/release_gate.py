@@ -24,6 +24,8 @@ DEFAULT_WORD_BUDGET = 500
 SCRIPT_TEST_TIMEOUT = 300
 # Each operation names one line; the fields it must carry, all single-line text.
 OPERATION_FIELDS = {"add": ("file", "to"), "change": ("file", "line", "to"), "remove": ("file", "line")}
+# An add lands after one line or before one line; with neither it appends.
+ANCHORS = ("after", "before")
 # Edits confined to these directories cannot change what the skill tells an agent to do.
 STATIC_DIRS = ("references", "scripts")
 _LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -83,8 +85,12 @@ def _skill_dir(name: object, scope: object, library_root: Path, project: Path) -
     return None
 
 
+def _one_line(value: object) -> bool:
+    return isinstance(value, str) and "\n" not in value and "\r" not in value
+
+
 def _single_line(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip()) and "\n" not in value and "\r" not in value
+    return _one_line(value) and bool(value.strip())
 
 
 def _itemized(operations: object) -> bool:
@@ -95,9 +101,16 @@ def _itemized(operations: object) -> bool:
         if not isinstance(operation, dict):
             return False
         fields = OPERATION_FIELDS.get(operation.get("op"))
-        if fields is None or not all(_single_line(operation.get(f)) for f in fields):
+        if fields is None:
             return False
-        if "after" in operation and not _single_line(operation["after"]):
+        anchors = [f for f in ANCHORS if f in operation]
+        if len(anchors) > 1 or (anchors and operation["op"] != "add"):
+            return False
+        # Written text may be a blank line; every line an operation names must have text.
+        named = [f for f in fields if f != "to"] + anchors
+        if not all(_single_line(operation.get(f)) for f in named):
+            return False
+        if "to" in fields and not _one_line(operation.get("to")):
             return False
     return True
 
@@ -173,12 +186,17 @@ def _apply(operation: dict, skill_copy: Path) -> None:
     """Apply one line operation to the working copy, keeping the edited line's indentation."""
     target = skill_copy / operation["file"]
     exists = target.is_file()
-    if not exists and not (operation["op"] == "add" and "after" not in operation):
+    anchored = any(f in operation for f in ANCHORS)
+    if not exists and not (operation["op"] == "add" and not anchored):
         raise Rejected("not-itemized", f"{operation['file']} does not exist")
     lines = target.read_text(encoding="utf-8").splitlines() if exists else []
     if operation["op"] == "add":
-        after = operation.get("after")
-        index = len(lines) if after is None else _only_line(lines, after, operation["file"]) + 1
+        if "after" in operation:
+            index = _only_line(lines, operation["after"], operation["file"]) + 1
+        elif "before" in operation:
+            index = _only_line(lines, operation["before"], operation["file"])
+        else:
+            index = len(lines)
         lines.insert(index, operation["to"])
     else:
         index = _only_line(lines, operation["line"], operation["file"])
@@ -186,7 +204,7 @@ def _apply(operation: dict, skill_copy: Path) -> None:
             del lines[index]
         else:
             indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-            lines[index] = indent + operation["to"].strip()
+            lines[index] = indent + operation["to"].strip() if operation["to"].strip() else ""
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

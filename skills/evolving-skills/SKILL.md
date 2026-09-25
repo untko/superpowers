@@ -44,8 +44,8 @@ It stops when the file is gone from `W/proposals/`.
 
 This skill's fault: make the smallest edit in `W/workspace/<skill>/` that would
 have prevented this friction. Prefer `references/` over `SKILL.md`. Strip
-project names, paths and secrets. No blank lines: `collect` refuses them. Done
-when the edited file says the new rule in one line.
+project names, paths and secrets. Done when the edited file says the new rule
+in one line.
 
 ## 3. Collect and gate
 

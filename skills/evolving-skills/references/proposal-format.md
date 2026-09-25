@@ -30,7 +30,8 @@ and prints a JSON report; it exits 0 only when the proposal passes.
   in the project's `.claude/skills/` or `.agents/skills/`. A project link into
   the library is global.
 - **operations**: each names one line by its text (whitespace-trimmed, unique
-  in the file) and carries single-line text. `add` without `after` appends,
+  in the file, never blank) and carries single-line text, which may be blank.
+  `add` takes one anchor, `after` or `before`; with neither it appends,
   creating the file if needed. `wording: true` claims a `SKILL.md` change
   rewords without changing a rule; the report lists the claim for review.
 - **evidence**: ids from the project's `.superpowers/friction.jsonl`

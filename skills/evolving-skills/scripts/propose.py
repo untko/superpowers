@@ -212,16 +212,15 @@ def _lines(data: bytes, name: str) -> list[str]:
         raise Usage(f"{name} is not text, and the gate edits lines") from None
 
 
-def _adds(name: str, lines: list[str], after: str | None = None) -> list[dict]:
-    """Add operations, each one anchored after the line before it."""
-    operations = []
-    for line in lines:
-        operation = {"op": "add", "file": name, "to": line}
-        if after is not None:
-            operation["after"] = after
-        operations.append(operation)
-        after = line
-    return operations
+def _insert(name: str, lines: list[str], prev: str | None, next_line: str | None) -> list[dict]:
+    """Add operations placing lines between two neighbours, anchored on one that has text."""
+    if next_line is None:
+        return [{"op": "add", "file": name, "to": line} for line in lines]
+    if next_line.strip():
+        return [{"op": "add", "file": name, "before": next_line, "to": line} for line in lines]
+    if prev is not None and prev.strip():
+        return [{"op": "add", "file": name, "after": prev, "to": line} for line in reversed(lines)]
+    raise Usage(f"{name}: {lines[0]!r} sits between blank lines; put a line with text next to it")
 
 
 def _change(name: str, line: str, to: str, wording: bool) -> dict:
@@ -240,17 +239,14 @@ def _line_ops(name: str, before: list[str], after: list[str], wording: bool) -> 
         if tag == "equal":
             continue
         old, new = before[i1:i2], after[j1:j2]
-        if not old:
-            if not j1:
-                raise Usage(f"{name}: no line comes before {new[0]!r}; add it after an existing line")
-            operations += _adds(name, new, after=before[j1 - 1])
-        elif not new:
-            operations += [{"op": "remove", "file": name, "line": line} for line in old]
-        else:
-            pairs = min(len(old), len(new))
-            operations += [_change(name, old[index], new[index], wording) for index in range(pairs)]
-            operations += _adds(name, new[pairs:], after=new[pairs - 1])
-            operations += [{"op": "remove", "file": name, "line": line} for line in old[pairs:]]
+        pairs = min(len(old), len(new))
+        operations += [_change(name, old[index], new[index], wording) for index in range(pairs)]
+        operations += [{"op": "remove", "file": name, "line": line} for line in old[pairs:]]
+        if new[pairs:]:
+            # Earlier hunks are already applied, so the line above is the edited file's line.
+            prev = after[j1 + pairs - 1] if j1 + pairs else None
+            next_line = before[i2] if i2 < len(before) else None
+            operations += _insert(name, new[pairs:], prev, next_line)
     return operations
 
 
@@ -263,20 +259,15 @@ def _operations(skill_dir: Path, workspace: Path, *, wording: bool) -> list[dict
         if before == after:
             continue
         if name not in original:
-            operations += _adds(name, _lines(after, name))
+            operations += _insert(name, _lines(after, name), None, None)
         elif name not in edited:
             raise Usage(f"{name} is deleted; a proposal can only add, change, or remove lines")
         else:
             operations += _line_ops(name, _lines(before, name), _lines(after, name), wording)
     for operation in operations:
-        if "to" in operation and not _single_line(operation["to"]):
-            raise Usage(f"{operation['file']}: the gate cannot write a blank line; edit without one")
         if "line" in operation and not _single_line(operation["line"]):
-            raise Usage(f"{operation['file']}: the gate cannot name a blank line to remove; "
-                        "drop the line another way")
-        if "after" in operation and not _single_line(operation["after"]):
-            raise Usage(f"{operation['file']}: a blank line cannot anchor an operation; "
-                        "add the line after a line with text")
+            raise Usage(f"{operation['file']}: the gate cannot name a blank line to change or remove; "
+                        "keep it")
     return operations
 
 

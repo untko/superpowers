@@ -396,7 +396,7 @@ class CollectTest(ProposerTest):
         self.assertEqual(code, 0)
         self.assertNotIn("wording", operation)
 
-    def test_lines_added_after_a_line_chain_their_anchors(self) -> None:
+    def test_lines_added_at_the_end_append_in_order(self) -> None:
         self.add_reference("tdd", "Mock at boundaries.\nPrefer fakes.\n")
         self.two_sessions("tdd", "global")
         self.prepare()
@@ -405,10 +405,19 @@ class CollectTest(ProposerTest):
         code, _, _ = self.collect("tdd")
         self.assertEqual(code, 0)
         self.assertEqual(self.skeleton("tdd")["operations"], [
-            {"op": "add", "file": "references/mocking.md", "after": "Prefer fakes.",
-             "to": "Stub the clock."},
-            {"op": "add", "file": "references/mocking.md", "after": "Stub the clock.",
-             "to": "Freeze the time."}])
+            {"op": "add", "file": "references/mocking.md", "to": "Stub the clock."},
+            {"op": "add", "file": "references/mocking.md", "to": "Freeze the time."}])
+
+    def test_lines_added_above_a_blank_line_anchor_after_the_line_above(self) -> None:
+        self.add_reference("tdd", "Mock at boundaries.\n\nPrefer fakes.\n")
+        self.two_sessions("tdd", "global")
+        self.prepare()
+        self.workspace("tdd", "references/mocking.md").write_text(
+            "Mock at boundaries.\nStub the clock.\nFreeze the time.\n\nPrefer fakes.\n")
+        code, out, err = self.collect("tdd")
+        self.assertEqual(code, 0, err + out)
+        self.assertEqual([operation.get("after") for operation in self.skeleton("tdd")["operations"]],
+                         ["Mock at boundaries.", "Mock at boundaries."])
 
     def test_a_removed_line_becomes_a_remove_operation(self) -> None:
         self.add_reference("tdd", "Mock at boundaries.\nPrefer fakes.\n")
@@ -443,26 +452,45 @@ class CollectTest(ProposerTest):
         self.assertIn("make the edited lines unique, or edit fewer lines", err)
         self.assertEqual(self.skeleton("tdd")["operations"], [])
 
-    def test_an_operation_anchored_on_a_blank_line_is_refused(self) -> None:
+    def test_a_line_added_after_a_blank_line_anchors_on_the_next_line(self) -> None:
         self.add_reference("tdd", "Mock at boundaries.\n\nPrefer fakes.\n")
         self.two_sessions("tdd", "global")
         self.prepare()
         self.workspace("tdd", "references/mocking.md").write_text(
-            "Mock at boundaries.\n\nStub the clock.\nPrefer fakes.\n")
-        code, _, err = self.collect("tdd")
-        self.assertEqual(code, 2)
-        self.assertIn("blank line", err)
-        self.assertEqual(self.skeleton("tdd")["operations"], [])
+            "Mock at boundaries.\n\nStub the clock.\n\nPrefer fakes.\n")
+        code, out, err = self.collect("tdd")
+        self.assertEqual(code, 0, err + out)
+        self.assertEqual(self.skeleton("tdd")["operations"], [
+            {"op": "add", "file": "references/mocking.md", "before": "Prefer fakes.", "to": "Stub the clock."},
+            {"op": "add", "file": "references/mocking.md", "before": "Prefer fakes.", "to": ""},
+        ])
 
-    def test_a_new_file_holding_a_blank_line_is_refused(self) -> None:
+    def test_a_new_markdown_file_with_blank_lines_is_proposed(self) -> None:
         self.two_sessions("tdd", "global")
         self.prepare()
         self.workspace("tdd", "references/mocking.md").parent.mkdir(parents=True)
         self.workspace("tdd", "references/mocking.md").write_text("# Mocking\n\nMock at boundaries.\n")
-        code, _, err = self.collect("tdd")
-        self.assertEqual(code, 2)
-        self.assertIn("references/mocking.md", err)
-        self.assertEqual(self.skeleton("tdd")["operations"], [])
+        code, out, err = self.collect("tdd")
+        self.assertEqual(code, 0, err + out)
+        self.assertEqual([operation["to"] for operation in self.skeleton("tdd")["operations"]],
+                         ["# Mocking", "", "Mock at boundaries."])
+
+    def test_a_line_added_above_the_first_line_anchors_before_it(self) -> None:
+        self.add_reference("tdd", "Mock at boundaries.\n")
+        self.two_sessions("tdd", "global")
+        self.prepare()
+        self.workspace("tdd", "references/mocking.md").write_text("# Mocking\n\nMock at boundaries.\n")
+        code, out, err = self.collect("tdd")
+        self.assertEqual(code, 0, err + out)
+
+    def test_an_insert_below_an_earlier_growing_hunk_is_anchored_on_the_edited_file(self) -> None:
+        self.add_reference("tdd", "One.\nTwo.\nThree.\nFour.\n")
+        self.two_sessions("tdd", "global")
+        self.prepare()
+        self.workspace("tdd", "references/mocking.md").write_text(
+            "One.\nOne and a half.\nOne and two thirds.\nTwo.\nThree.\nThree and a half.\nFour.\n")
+        code, out, err = self.collect("tdd")
+        self.assertEqual(code, 0, err + out)
 
     def test_a_removed_blank_line_is_refused(self) -> None:
         self.add_reference("tdd", "Mock at boundaries.\n\nPrefer fakes.\n")

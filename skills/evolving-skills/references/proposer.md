@@ -44,14 +44,12 @@ Exit 2 always says which file, and never leaves a proposal behind. The refusals:
 
 - `make the edited lines unique, or edit fewer lines` — an anchor line appears
   more than once, or the operations do not reproduce your file exactly.
-- `the gate cannot write a blank line` — no operation may write one, and none may
-  anchor on one. Write new files as one line each.
-- `the gate cannot name a blank line to remove` — a blank line cannot be an
-  operation; keep it.
+- `the gate cannot name a blank line to change or remove` — keep blank lines
+  where they are; change the lines with text.
+- `sits between blank lines` — an added line needs a neighbour with text above
+  or below it.
 - `is deleted; a proposal can only add, change, or remove lines` — empty the
   file's lines instead of removing the file.
-- `no line comes before` — a line added above the first line of a file has no
-  anchor; add it after an existing line.
 - `is not text, and the gate edits lines` — a binary file changed.
 
 ## Rejection reasons

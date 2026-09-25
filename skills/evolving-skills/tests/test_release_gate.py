@@ -282,6 +282,18 @@ class AnchorAndBudgetTest(unittest.TestCase):
         report = self.edit({"op": "add", "file": "SKILL.md", "to": " ".join(["word"] * 500)})
         self.assertEqual(report.reason, "budget")
 
+    def test_a_blank_line_may_be_written_but_never_named(self) -> None:
+        written = self.edit({"op": "add", "file": "SKILL.md", "before": "Write one assertion per test.", "to": ""})
+        self.assertIn("itemized", written.checks)
+        for anchor in ({"after": " "}, {"before": ""}):
+            report = self.edit({"op": "add", "file": "SKILL.md", "to": "Rule.", **anchor})
+            self.assertEqual(report.reason, "not-itemized")
+
+    def test_an_add_takes_one_anchor(self) -> None:
+        report = self.edit({"op": "add", "file": "SKILL.md", "to": "Rule.",
+                            "after": "Write one assertion per test.", "before": "Always run the tests first."})
+        self.assertEqual(report.reason, "not-itemized")
+
     def test_operation_on_a_missing_line_is_rejected(self) -> None:
         report = self.edit({"op": "remove", "file": "SKILL.md", "line": "No such rule."})
         self.assertEqual(report.reason, "not-itemized")
