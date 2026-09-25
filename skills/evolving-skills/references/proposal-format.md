@@ -117,4 +117,6 @@ case with `claude plugin eval`. `opencode` runs each `prompt.md` with
 `opencode run` and has a model grade the transcript against each
 `graders/*.md`, so any model opencode can reach works, for example
 `--cli opencode --model openrouter/<model>`. Scores from different CLIs or
-models are not comparable; compare only within one gate run.
+models are not comparable; compare only within one gate run. OpenCode's
+free `opencode/*` models may refuse scripted runs (`FreeTierError`); the
+gate then reports `eval-failed` with that message. Pick a provider model.

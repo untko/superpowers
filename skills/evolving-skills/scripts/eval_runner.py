@@ -180,7 +180,7 @@ class OpencodeEval:
         run = self._run(self.model, work, prompt, env, case.name)
         transcript = _transcript(_parts(run.stdout))
         if not transcript:
-            raise EvalFailed(f"{case.name}: opencode printed no transcript: {_tail(run.stderr)}")
+            raise EvalFailed(f"{case.name}: opencode printed no transcript: {_complaint(run)}")
         return statistics.fmean([
             self._grade(index, criterion, transcript, root, env, case.name)
             for index, criterion in enumerate(criteria)
@@ -210,14 +210,16 @@ class OpencodeEval:
     def _run(self, model: str, work: Path, prompt: str, env: dict[str, str],
              case: str) -> subprocess.CompletedProcess[str]:
         """One `opencode run`, in `work`, on the isolated environment."""
-        argv = [self.executable, "run", "-m", model, "--format", "json", "--dir", str(work), prompt]
+        # --auto: nobody can answer a permission prompt here; explicit denies still hold.
+        argv = [self.executable, "run", "--auto", "-m", model, "--format", "json", "--dir", str(work), prompt]
         try:
+            # A piped stdin makes `opencode run` wait to read it.
             run = subprocess.run(argv, cwd=work, capture_output=True, text=True,
-                                 timeout=OPENCODE_TIMEOUT, env=env)
+                                 stdin=subprocess.DEVNULL, timeout=OPENCODE_TIMEOUT, env=env)
         except (OSError, subprocess.TimeoutExpired) as failure:
             raise EvalFailed(f"{case}: opencode did not finish: {failure}") from failure
         if run.returncode != 0:
-            raise EvalFailed(f"{case}: opencode exited {run.returncode}: {_tail(run.stderr)}")
+            raise EvalFailed(f"{case}: opencode exited {run.returncode}: {_complaint(run)}")
         return run
 
 
@@ -294,12 +296,13 @@ def _metadata(lines: list[str]) -> dict[str, object]:
 
 
 def _permission(allowed: list[str]) -> str:
-    """Deny the tools a case does not allow, so neither arm can outrun its prompt."""
+    """Deny the tools a case does not allow, and anything outside the work dir."""
     denied = {}
     if "Bash" not in allowed:
         denied["bash"] = "deny"
     if not ({"Edit", "Write"} & set(allowed)):
         denied["edit"] = "deny"
+    denied["external_directory"] = "deny"
     return json.dumps(denied)
 
 
@@ -331,20 +334,34 @@ def _link_auth(home: Path) -> None:
     staged.symlink_to(real)
 
 
-def _parts(stdout: str) -> list[dict]:
-    """The event parts of a `--format json` run, in the order the CLI printed them."""
-    parts = []
+def _events(stdout: str) -> list[dict]:
+    """The JSON events of a `--format json` run, in the order the CLI printed them."""
+    events = []
     for line in stdout.splitlines():
-        if not line.strip():
-            continue
         try:
             event = json.loads(line)
         except ValueError:
             continue
-        part = event.get("part") if isinstance(event, dict) else None
-        if isinstance(part, dict):
-            parts.append(part)
-    return parts
+        if isinstance(event, dict):
+            events.append(event)
+    return events
+
+
+def _parts(stdout: str) -> list[dict]:
+    """The event parts of a `--format json` run, in the order the CLI printed them."""
+    return [event["part"] for event in _events(stdout) if isinstance(event.get("part"), dict)]
+
+
+def _complaint(run: subprocess.CompletedProcess) -> str:
+    """Why an opencode run failed: its JSON error events, else the end of its stderr."""
+    errors = []
+    for event in _events(run.stdout):
+        error = event.get("error") if event.get("type") == "error" else None
+        if isinstance(error, dict):
+            data = error.get("data")
+            message = data.get("message") if isinstance(data, dict) else None
+            errors.append(f"{error.get('name', 'error')}: {message or json.dumps(error)[:300]}")
+    return "; ".join(errors)[-500:] or _tail(run.stderr)
 
 
 def _transcript(parts: list[dict]) -> str:

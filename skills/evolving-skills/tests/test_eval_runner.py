@@ -61,7 +61,13 @@ with LOG.open("a") as handle:
         "listing": sorted(os.listdir(work)),
         "skills": skills,
         "auth": str(auth.resolve()) if auth.exists() else None,
+        "stdin_closed": os.path.samestat(os.fstat(0), os.stat(os.devnull)),
     }}) + "\\n")
+
+if answer == "error":
+    print(json.dumps({{"type": "error", "error": {{"name": "APIError",
+                                                 "data": {{"message": "free tier refused"}}}}}}))
+    sys.exit(1)
 
 parts = [{{"type": "text", "text": "Before I write a test, which seam am I testing?"}}]
 if "SCORE:" in prompt:
@@ -318,8 +324,8 @@ class FakeOpencode:
     """A fake `opencode` on PATH that records every call and answers as an agent or a grader.
 
     The score table maps a needle in the prompt to the SCORE the grader reports, with
-    `default` for any needle that does not match. `silent` prints nothing at all and
-    `none` prints an answer with no `SCORE:` line.
+    `default` for any needle that does not match. `silent` prints nothing at all,
+    `none` prints an answer with no `SCORE:` line, and `error` prints only an error event.
     """
 
     def __init__(self, case: unittest.TestCase, root: Path, *, scores: dict[str, str] | None = None,
@@ -407,13 +413,14 @@ class OpencodeEvalTest(unittest.TestCase):
     def test_it_runs_the_documented_command(self) -> None:
         self.score()
         argv = self.agent()["argv"]
-        self.assertEqual(argv[:6], ["run", "-m", "openrouter/qwen3-max", "--format", "json", "--dir"])
-        self.assertEqual(argv[7], "Let's do this test-first. I need a `slugify(title)` function. Go.")
+        # --auto: a permission prompt nobody can answer would hang the run; denies still hold.
+        self.assertEqual(argv[:7], ["run", "--auto", "-m", "openrouter/qwen3-max", "--format", "json", "--dir"])
+        self.assertEqual(argv[8], "Let's do this test-first. I need a `slugify(title)` function. Go.")
 
     def test_the_case_runs_in_the_directory_it_names(self) -> None:
         self.score()
         call = self.agent()
-        work = Path(call["argv"][6])
+        work = Path(call["argv"][7])
         self.assertEqual(Path(call["cwd"]).resolve(), work.resolve())
         self.assertEqual(call["listing"], [".opencode"])
         self.assertEqual(work.name, "seams-agreed-first")
@@ -421,15 +428,15 @@ class OpencodeEvalTest(unittest.TestCase):
     def test_the_grader_runs_in_an_empty_directory_of_its_own(self) -> None:
         self.score()
         grader = self.fake.grader_calls()[0]
-        work = Path(grader["argv"][6])
+        work = Path(grader["argv"][7])
         self.assertEqual(Path(grader["cwd"]).resolve(), work.resolve())
         self.assertEqual(grader["listing"], [])
-        self.assertNotEqual(work, Path(self.agent()["argv"][6]))
+        self.assertNotEqual(work, Path(self.agent()["argv"][7]))
 
     def test_the_grader_runs_its_own_model(self) -> None:
         self.score(runner=eval_runner.OpencodeEval("openrouter/qwen3-max", grader_model="anthropic/haiku"))
-        self.assertEqual(self.agent()["argv"][2], "openrouter/qwen3-max")
-        self.assertEqual(self.fake.grader_calls()[0]["argv"][2], "anthropic/haiku")
+        self.assertEqual(self.agent()["argv"][3], "openrouter/qwen3-max")
+        self.assertEqual(self.fake.grader_calls()[0]["argv"][3], "anthropic/haiku")
 
     def test_it_scores_the_mean_of_the_cases_graders(self) -> None:
         FakeOpencode(self, self.root, scores={"The response names the seam": "1",
@@ -495,23 +502,25 @@ class OpencodeEvalTest(unittest.TestCase):
     def test_a_case_that_allows_no_bash_or_edit_denies_both(self) -> None:
         self.score()
         self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
-                         {"bash": "deny", "edit": "deny"})
+                         {"bash": "deny", "edit": "deny", "external_directory": "deny"})
 
-    def test_a_case_that_allows_both_asks_for_no_permission_at_all(self) -> None:
+    def test_a_case_that_allows_both_still_stays_in_its_work_dir(self) -> None:
         self.write_prompt(self.case, "allowed_tools: [Read, Write, Bash]", "Go.")
         self.score()
-        self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]), {})
+        self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
+                         {"external_directory": "deny"})
 
     def test_allowed_tools_reads_a_list_of_items_too(self) -> None:
         self.write_prompt(self.case, "allowed_tools:\n  - Read\n  - Write", "Go.")
         self.score()
-        self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]), {"bash": "deny"})
+        self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
+                         {"bash": "deny", "external_directory": "deny"})
 
     def test_a_case_with_no_allowed_tools_denies_both(self) -> None:
         (self.case / "prompt.md").write_text("Just answer the question.\n")
         self.score()
         self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
-                         {"bash": "deny", "edit": "deny"})
+                         {"bash": "deny", "edit": "deny", "external_directory": "deny"})
 
     def test_every_case_runs_in_a_work_dir_of_its_own(self) -> None:
         second = self.root / "evals" / "tdd" / "quality" / "one-assertion"
@@ -521,7 +530,7 @@ class OpencodeEvalTest(unittest.TestCase):
         FakeOpencode(self, self.root, scores={"default": "1"})
         self.assertEqual(self.score(cases=[self.case, second]),
                          {"seams-agreed-first": 1.0, "one-assertion": 1.0})
-        work_dirs = [call["argv"][6] for call in self.fake.agent_calls()]
+        work_dirs = [call["argv"][7] for call in self.fake.agent_calls()]
         self.assertEqual(len(work_dirs), 2)
         self.assertEqual(len(set(work_dirs)), 2)
 
@@ -570,6 +579,17 @@ class OpencodeEvalTest(unittest.TestCase):
             self.score()
         self.assertIn("seams-agreed-first", str(failure.exception))
         self.assertIn("not logged in", str(failure.exception))
+
+    def test_an_error_opencode_prints_as_json_names_the_failure(self) -> None:
+        FakeOpencode(self, self.root, scores={"default": "error"})
+        with self.assertRaises(eval_runner.EvalFailed) as failure:
+            self.score()
+        self.assertIn("free tier refused", str(failure.exception))
+
+    def test_opencode_gets_no_stdin_to_wait_on(self) -> None:
+        FakeOpencode(self, self.root)
+        self.score()
+        self.assertTrue(self.agent()["stdin_closed"])
 
     def test_an_agent_that_says_nothing_is_a_failure(self) -> None:
         FakeOpencode(self, self.root, scores={"default": "silent"})
