@@ -1,7 +1,8 @@
 ---
 title: Skill Evolution — Automated Capture and Two-Tier Routing
 date: 2026-08-03
-status: proposed
+status: superseded
+superseded_by: https://github.com/untko/superpowers/issues/1
 ---
 
 # Skill Evolution — Automated Capture and Two-Tier Routing
