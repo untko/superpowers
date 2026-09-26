@@ -89,3 +89,24 @@ capture must never break a session.
 `--harness` names the normalizer and is recorded on every event:
 `claude` (or `claude-code`) reads a Claude Code transcript, `codex` a rollout
 JSONL, `opencode` a JSON message array. An unknown name records nothing.
+
+## Atlas nudge
+
+`hooks/atlas_nudge.py` is the optional read side. At session start it reads the
+friction log and, only when earlier sessions added events since the last nudge,
+prints one line: counts, plus an instruction to ask the user once, at a natural
+break, whether a lesson belongs in the Atlas (`update-atlas`). Each batch is
+shown once; the read offset lives in `.superpowers/atlas-nudge.json`. It never
+fails a session and nothing depends on it: `wrap-session` offers the same step.
+
+Plain stdout from a `SessionStart` command becomes session context in both
+Claude Code and Codex. Claude Code (`~/.claude/settings.json`):
+
+```json
+"SessionStart": [
+  {"matcher": "startup|clear|compact",
+   "hooks": [{"type": "command", "command": "python3 /path/to/superpowers/hooks/atlas_nudge.py", "timeout": 10}]}
+]
+```
+
+Codex takes the same entry in `~/.codex/hooks.json`, beside the `Stop` recorder.

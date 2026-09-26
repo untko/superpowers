@@ -54,7 +54,11 @@ Write the principle language-agnostic. Keep the concrete case as a dated example
 
 Do not put code, scripts, or commands in the Atlas. Place the principle by topic, not by the project it came from. Mark who said what: the user's statements are attributed to the user, and conclusions you drew are marked as agent-inferred.
 
-The session is the evidence for the principle. Follow the synthesis and integration components for how to preserve and cite it. If they define no place for session evidence, stop at the proposal and report that gap.
+Update what the Atlas already has. Prefer, in order: a section in an existing Concept Note (for example the deployment best-practices note), an existing Record Note, then a new Concept Note placed by topic.
+
+Do not create a Source Note for the session or a Record Note for each friction. Create a Record Note only when the session is long and its record is worth reading on its own; ask the user first.
+
+Without a Source Note, a principle has no citation. Keep it only if you would write it without this session, which is the integration component's counterfactual test. A new note for it stays `status: seed`. Never cite the session transcript.
 
 ## Load the canonical components
 
@@ -116,4 +120,5 @@ Use whatever file, search, browser, or terminal capabilities the current harness
 | Running from an unrelated project and guessing the vault | Resolve and verify the configured Atlas root |
 | Writing a session lesson into the Atlas as it happened in one project | Split it; the Atlas gets the language-agnostic principle with the case as a dated example |
 | Putting a deploy step, script, or command into an Atlas note | Procedure goes to an `evolving-skills` proposal |
+| Creating a session Source Note or a Record Note per friction | Update the existing concept or best-practice note |
 | Reading components through old symlinks or copies | Read them from `repository_root`; the Atlas repository owns them |

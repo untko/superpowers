@@ -54,6 +54,11 @@ invent provenance, promote a proposal, or edit another repository. Put an
 unwritable proposed note in the receipt. Ask when the durable destination is
 ambiguous.
 
+If the session taught a lesson that holds beyond this repository, ask the user
+once whether it belongs in the Atlas. On yes, use `update-atlas`: it splits the
+lesson into principle, procedure, and project fact. Do not write the Atlas
+without that yes.
+
 ### 4. Verify proportionally
 
 Match evidence to the claim:
@@ -90,6 +95,7 @@ Verification: <evidence, failure, or intentional skip>
 Git: <staged, commit, branch, and push state>
 Remaining work: <next action or none>
 Observations: <local paths, receipt-only note, or none>
+Atlas: <offered and outcome, or no lesson beyond this repository>
 ```
 
 ## Red Flags
