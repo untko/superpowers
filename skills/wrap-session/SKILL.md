@@ -29,8 +29,8 @@ adapter-version: <positive integer>
 
 Report invalid metadata; never guess policy. Read only resources required for
 the current phase. Reject directories, absolute paths, `..`, missing files, and
-symlink escapes. Adapters are not invokable skills and cannot weaken scope,
-verification, Git, or cross-repository gates.
+symlink escapes. Adapters cannot weaken scope, verification, Git, or
+cross-repository gates.
 
 ### 2. Gate unfinished work
 
@@ -47,17 +47,16 @@ next action; follow explicit WIP Git direction.
 ### 3. Preserve durable context
 
 Use [artifact decisions](references/closeout-artifacts.md) to update only
-artifacts materially affected. Record significant reusable friction, minimally
+artifacts materially affected. Record reusable friction, minimally
 sanitized, in `.superpowers/observations/pending/` following the
 [observation format](references/observation-format.md); never scan history,
 invent provenance, promote a proposal, or edit another repository. Put an
 unwritable proposed note in the receipt. Ask when the durable destination is
 ambiguous.
 
-If the session taught a lesson that holds beyond this repository, ask the user
-once whether it belongs in the Atlas. On yes, use `update-atlas`: it splits the
-lesson into principle, procedure, and project fact. Do not write the Atlas
-without that yes.
+If a lesson holds beyond this repository, ask once whether it belongs in the
+Atlas. On yes, use `update-atlas`, which splits principle, procedure, and
+project fact. Never write the Atlas without that yes.
 
 ### 4. Verify proportionally
 
@@ -68,7 +67,7 @@ Match evidence to the claim:
 | Code or configuration | Focused changed-surface checks; broader gates when risk/policy requires |
 | Documentation or knowledge | Relevant links, structure, examples, or doc checks |
 | Office or exported artifact | Opens/renders; critical content preserved |
-| No material change | Status inspection; state that further verification was skipped |
+| No material change | Status inspection; say verification was skipped |
 
 Focused evidence supports focused claims.
 
@@ -89,20 +88,17 @@ When completed branch disposition is needed, **REQUIRED SUB-SKILL:** Use
 ```markdown
 Summary: <completed work or handoff>
 Owned scope: <session-owned paths>
-Adapter status: <absent, valid version, or exact error>
+Adapter status: <absent, valid version, or error>
 Durable artifacts: <updated paths or none>
 Verification: <evidence, failure, or intentional skip>
-Git: <staged, commit, branch, and push state>
+Git: <staged, committed, pushed>
 Remaining work: <next action or none>
-Observations: <local paths, receipt-only note, or none>
-Atlas: <offered and outcome, or no lesson beyond this repository>
+Observations: <paths, receipt-only note, or none>
+Atlas: <offered and outcome, or none>
 ```
 
 ## Red Flags
 
-- A known failure exists, but the session is described as complete.
-- Staging the worktree or unrelated files.
-- Inventing provenance or hard-coding repository-specific paths.
-- Silently ignoring an invalid adapter.
-- Editing another repository during ordinary wrap-up.
+- Calling the session complete with a known failure.
+- Hard-coding repository-specific paths.
 - Treating an observation or proposal as authorization.
