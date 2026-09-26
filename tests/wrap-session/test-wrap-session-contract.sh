@@ -43,9 +43,9 @@ grep -q 'references/closeout-artifacts\.md' "$SKILL_FILE" ||
   fail "new artifact reference path is missing"
 grep -q '\.superpowers/observations/pending/' "$SKILL_FILE" ||
   fail "repository-local pending observation path is missing"
-grep -q 'superpowers:verification-before-completion' "$SKILL_FILE" ||
+grep -q '`verification-before-completion`' "$SKILL_FILE" ||
   fail "verification delegation is missing"
-grep -q 'superpowers:finishing-a-development-branch' "$SKILL_FILE" ||
+grep -q '`finishing-a-development-branch`' "$SKILL_FILE" ||
   fail "completed branch disposition delegation is missing"
 grep -Eqi 'push.*separate.*(authoriz|approval)|separate.*push.*(authoriz|approval)' "$SKILL_FILE" ||
   fail "separate push authorization is missing"

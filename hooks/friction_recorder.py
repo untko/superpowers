@@ -12,17 +12,27 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 if __package__:  # imported as hooks.friction_recorder
-    from . import transcripts
+    from . import project_store, transcripts
 else:  # hook entry point: python3 hooks/friction_recorder.py
+    import project_store
     import transcripts
 
 EXCERPT_LIMIT = 500
 LOG_NAME = "friction.jsonl"
 
+# Wording that says the agent got something wrong. A bare "don't" or "fix it" is
+# an instruction or a preference ("i don't want...", "fix it"), not a correction.
 _CORRECTION = re.compile(
-    r"(?:\bstop\s+(?:doing|using)\b|\bdo\s+not\b|\bdon't\b|\bwrong\b|\bincorrect\b"
-    r"|\bfix\s+(?:it|this|that)\b|\bgot\s+.+?\s+wrong\b)",
-    re.IGNORECASE | re.DOTALL,
+    r"(?:^\s*no\s*[,.!:]|\bstop\s+(?:doing|using)\b|\bwrong\b|\bincorrect\b"
+    r"|\bnot\s+what\s+i\s+(?:asked|meant|wanted|said)\b|\bi\s+(?:said|told\s+you)\b"
+    r"|\byou\s+(?:forgot|missed|ignored|broke|skipped)\b|\bwhy\s+did\s+you\b"
+    r"|\b(?:don't|do\s+not)\s+do\s+(?:that|this)\b|\b(?:undo|revert)\s+(?:that|this|it)\b)",
+    re.IGNORECASE,
+)
+# Text the user pasted or quoted is someone else's words, not a correction.
+_QUOTED = re.compile(
+    r"<pasted_content\b.*?</pasted_content>|\"[^\"]*\"|\u201c[^\u201d]*\u201d|^\s*>[^\n]*",
+    re.DOTALL | re.MULTILINE,
 )
 
 
@@ -142,7 +152,7 @@ def _is_correction(text: Any) -> bool:
     return (
         isinstance(text, str)
         and not text.lstrip().startswith("<")
-        and bool(_CORRECTION.search(text))
+        and bool(_CORRECTION.search(_QUOTED.sub(" ", text)))
     )
 
 
@@ -245,7 +255,7 @@ def record(
     friction = _friction(payload, records, library_root, project)
     if not friction:
         return []
-    log = project / ".superpowers" / LOG_NAME
+    log = project_store.store_dir(project) / LOG_NAME
     seen = _logged_ids(log)
     timestamp = now or datetime.now(timezone.utc).isoformat()
     session_skills = None

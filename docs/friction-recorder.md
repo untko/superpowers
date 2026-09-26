@@ -3,7 +3,14 @@
 `hooks/friction_recorder.py` is a deterministic hook: it reads the session's
 transcript, finds friction (a correction the user typed, a tool that failed),
 and appends one JSON line per event to `<project>/.superpowers/friction.jsonl`.
-No model call. The `Stop` sweep covers the whole session, and event ids dedupe
+No model call. `<project>` is the main checkout, even when the session runs in
+a linked worktree: a worktree is removed when its branch merges, and its log
+would go with it (`hooks/project_store.py` reads git's files, no subprocess).
+
+A correction is a prompt that says the agent got something wrong: "no, …",
+"wrong", "not what I asked", "you forgot …", "why did you …", "revert that".
+A bare "don't" or "fix it" is an instruction or a preference, not a correction,
+and text the user pasted or quoted is someone else's words; neither counts. The `Stop` sweep covers the whole session, and event ids dedupe
 across runs, so registering `Stop` alone is enough everywhere.
 
 One script serves every CLI. `hooks/transcripts.py` normalizes each harness's
@@ -92,19 +99,22 @@ JSONL, `opencode` a JSON message array. An unknown name records nothing.
 
 ## Atlas nudge
 
-`hooks/atlas_nudge.py` is the optional read side. At session start it reads the
-friction log and, only when earlier sessions added events since the last nudge,
-prints one line: counts, plus an instruction to ask the user once, at a natural
-break, whether a lesson belongs in the Atlas (`update-atlas`). Each batch is
-shown once; the read offset lives in `.superpowers/atlas-nudge.json`. It never
-fails a session and nothing depends on it: `wrap-session` offers the same step.
+`hooks/atlas_nudge.py` is the optional read side, and it stays quiet. At
+session start it reads the friction log and prints one line only when earlier
+sessions left at least two user corrections since the last nudge, and at most
+once a week. Below that, the events wait. Tool failures are counted in the line
+but never trigger it. The line gives the counts and asks the agent to ask the
+user once, at a natural break, whether a lesson belongs in the Atlas
+(`update-atlas`). The read offset and the last nudge time live in
+`.superpowers/atlas-nudge.json`. It never fails a session and nothing depends
+on it: `wrap-session` offers the same step.
 
 Plain stdout from a `SessionStart` command becomes session context in both
 Claude Code and Codex. Claude Code (`~/.claude/settings.json`):
 
 ```json
 "SessionStart": [
-  {"matcher": "startup|clear|compact",
+  {"matcher": "startup",
    "hooks": [{"type": "command", "command": "python3 /path/to/superpowers/hooks/atlas_nudge.py", "timeout": 10}]}
 ]
 ```
