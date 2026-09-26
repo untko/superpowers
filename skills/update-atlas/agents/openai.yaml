@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Atlas"
+  short_description: "Update Atlas from session, files, or URLs"
+  default_prompt: "Use $update-atlas to update my Atlas from this session, a local file, or a URL."

@@ -1,0 +1,24 @@
+schema: update-atlas/profile-v2
+# Every path below except repository_root is relative to repository_root.
+# The Atlas repository owns these files. This skill reads them in place and
+# keeps no copies or symlinks, so moving the Atlas means editing one line.
+atlas:
+  repository_root: ~/Projects/ObsidianVault-main
+  vault_root: obsidian-vault
+  instructions: AGENTS.md
+  orientation: README.md
+components:
+  synthesis: .agents/skills/knowledge-synthesis/SKILL.md
+  integration: .agents/skills/knowledge-integration/SKILL.md
+  gardening: .agents/skills/knowledge-gardening/SKILL.md
+contracts:
+  knowledge_workflow: .agents/knowledge-workflow-contract.md
+  knowledge_writing: .agents/knowledge-writing-contract.md
+  knowledge_graph: .agents/knowledge-graph-reference.md
+  knowledge_taxonomy: .agents/knowledge-taxonomy-reference.md
+  citations: .agents/citation-reference.md
+  vault_edit: .agents/vault-edit-contract.md
+  writing_style: .agents/writing-style-contract.md
+capabilities:
+  required: [filesystem-read]
+  optional: [filesystem-write, semantic-search, web-retrieval, parallel-agents, planning-interface]
