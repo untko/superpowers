@@ -79,29 +79,9 @@ Component instructions own proposal shape, stable IDs, approval gates, mutation 
 4. After explicit approval, keep one writer, apply only approved IDs, and preserve unrelated work.
 5. Run the repository's supported validation, generated-index, citation, diff, and semantic-index checks. Report component-required Claim Traces or gardening outcomes.
 
-### Supported Helper Tools
+### Helpers and rules live in the Atlas repository
 
-When executing inside the Atlas repository, use the fast CLI helpers to eliminate manual pathing, schema, or syntax errors:
-- `python3 scripts/find_concept.py <query>` — instant concept & alias lookup (<0.05s) to detect existing notes and prevent duplicates; use `--batch <q1> <q2>...` for multi-query lookups.
-- `python3 scripts/read_neighborhood.py <query>` — fast structural graph reader (frontmatter, edges, children, backlinks); use `--batch` across candidate clusters.
-- `python3 scripts/new_concept.py "<Title>" --domain "<domain>" [--parents "..."]` — scaffolds pre-validated Concept/Entity notes with clean physical filenames (no parentheses on disk), rich YAML `title:`, auto-stamped UUID `uid:`, and Parent links (`--suggest-parents` recommends parents).
-- `python3 scripts/new_concept.py "<Title>" --domain "<domain>" --type note --subtype record` — scaffolds an Atlas Record Note.
-- `python3 scripts/relocate_note.py --source <old> --target <new>` — executes the **Relocation Invariant** when promoting inbox captures to `sources/<type>/YYYY/MM/`, preserving identity and preventing link rot.
-- `python3 scripts/cite.py <atlas_note> <source_note>` — computes exact relative path depth (`../../../../sources/...`) and generates standard footnote citations; use `--batch` for clusters.
-- `python3 scripts/audit_lineage.py [--path <dir>] [--changed] [--exclude-people]` — audits vertical lineage depth, bottlenecks, and enforces the Entity-to-Role and Entity-to-Category rules.
-- `python3 scripts/audit_sources.py [--changed] [--all]` — audits Source Notes for incoming Atlas links and citations.
-- `python3 scripts/rebalance_folders.py` — audits Atlas folder density (flags directories > 50 notes).
-- `python3 scripts/validate_vault.py --files <paths> --canonical-links` — validates schema, footnote pairing, and canonical link targets.
-- `python3 scripts/check.py --fix-links --skip-tests` — runs the fast unified pre-flight check (UID stamping, MOC regeneration, validation).
-- `node scripts/consensus.mjs search "<query>"` — searches peer-reviewed academic literature via Consensus Pro.
-
-### Core Governance Invariants
-
-- **Relocation Invariant**: Moving an Inbox Note into `sources/` MUST use `python3 scripts/relocate_note.py` to preserve note identity and prevent accidental content loss.
-- **Universal Ontological Scaffolding**: Enforce the **Entity-to-Role Rule** (person entities must link to occupational/functional roles like `[[computer scientist]]`, `[[software engineer]]`, never bare domain roots) and the **Entity-to-Category Rule** (organization entities must link to institutional categories like `[[semiconductor company]]`, `[[frontier AI lab]]`).
-- **Simplified Technical English (STE)**: All durable prose authored in `atlas/`, `.agents/`, and `docs/` must obey STE rules (sentences $\le 25$ words, active voice, no contractions).
-- **Deletion Guardrails**: Never delete or deprecate a note without verifying zero inbound wikilinks across the vault.
-- **Canonical URL Integrity**: Source URLs in frontmatter must be verified from tool execution, never guessed or generated from model memory.
+Inside the Atlas repository, use the helper scripts listed under **Agent Helper Tools** in its instructions file. Move an Inbox Note into `sources/` only with its relocation helper. The repository contracts own the governance rules: note schema, lineage, citations, deletion guards, and style. This skill repeats none of them, because a copy drifts from the contract it copies.
 
 Use whatever file, search, browser, or terminal capabilities the current harness provides; never require a branded tool name. If writing is unavailable, return the decision-complete proposal and report the execution blocker. When optional semantic search is absent, use the component's fallback. When a component requires parallel agents but the harness lacks them, do not exceed its context guard: split into user-approved bounded batches or report the smallest blocking scope.
 
@@ -109,12 +89,11 @@ Use whatever file, search, browser, or terminal capabilities the current harness
 
 | Mistake | Correction |
 |---|---|
-| Copying synthesis or gardening rules here | Load the canonical linked components |
+| Copying synthesis, gardening, or governance rules here | Load the canonical components and contracts |
 | Treating session context as one evidence class | Separate external claims from user-authored conclusions |
 | Editing before approval because the user said “update” | Return the required stable-ID proposal first |
 | Using a URL summary without preserving the source | Preserve accepted evidence before durable claims |
-| Moving inbox notes via raw `mv` or shell commands | Always use `python3 scripts/relocate_note.py` |
-| Authoring person notes parented by bare domain roots | Enforce the Entity-to-Role Rule (`[[computer scientist]]`, `[[software engineer]]`) |
+| Moving inbox notes via raw `mv` or shell commands | Use the repository relocation helper |
 | Violating Simplified Technical English (STE) | Keep sentences under 25 words with active voice and no contractions |
 | Assuming Codex, Claude, OpenCode, MCP, or subagents exist | Adapt to capabilities; preserve the same contracts |
 | Running from an unrelated project and guessing the vault | Resolve and verify the configured Atlas root |
