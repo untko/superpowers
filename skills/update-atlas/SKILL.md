@@ -1,6 +1,6 @@
 ---
 name: update-atlas
-description: Use when the user asks to update, add to, synthesize into, repair, or reorganize their Atlas from current session context, a conversation transcript, local files, pasted material, URLs, web pages, lessons learned during agent work, or mixed evidence, especially while working outside the Atlas repository.
+description: Use when the user asks to add to, update, repair, or reorganize their Atlas from session context, lessons from agent work, local files, pasted material, or URLs, including from outside the Atlas repository.
 ---
 
 # Update Atlas
