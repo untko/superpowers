@@ -36,7 +36,8 @@ and prints a JSON report; it exits 0 only when the proposal passes.
   rewords without changing a rule; the report lists the claim for review.
 - **evidence**: ids from the project's `.superpowers/friction.jsonl`
   attributed to this skill, or case ids under `evals/<skill>/`. It passes with
-  one correction, one case, or friction from two sessions.
+  one correction, one case, or friction from two sessions. A cited case must
+  also prove itself in the eval: below 1.0 without the edit, higher with it.
 
 ## Eval cases
 
@@ -73,7 +74,7 @@ but not grow. Only the body after the frontmatter counts.
 
 Rejection reasons, in check order: `schema`, `scope`, `not-itemized`,
 `insufficient-evidence`, `anchor`, `budget`, `links`, `eval-skipped`,
-`script-tests`, `untested`, `eval-failed`, `regression`.
+`script-tests`, `untested`, `eval-failed`, `regression`, `case-unproven`.
 Operations confined to `references/` or `scripts/`, and claimed rewordings,
 are `static` and finish after the checks above, without a model. Any other
 edit is a `rule-change`: it runs every case of the skill once on the
@@ -82,6 +83,10 @@ until you name a CLI and a model. A case that scores lower with the edit is a
 `regression`; a skill with no cases is `untested`; a CLI that cannot answer is
 `eval-failed`, never a score of zero. Each arm is one run, so a single case
 can flip on grader noise: rerun a surprising `regression` before trusting it.
+Any edit that cites a case also needs a CLI and a model. A static edit scores
+only its cited cases; a rule change reuses its scores. A cited case that
+scores 1.0 without the edit, or no higher with it, is `case-unproven`: the
+model does not need the edit for that case.
 An edit under `scripts/` runs the skill's own tests on the edited copy, before
 any eval, so it executes the proposed code as you: read it before running the
 gate.

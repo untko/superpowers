@@ -36,7 +36,8 @@ skeleton keeps any friction `S` has; with none, the evidence is empty and the
 gate refuses it until you cite a case.
 
 The case comes first: a directory under `evals/<skill>/` holding the prompt that
-fails without the edit. Your human partner approves it at release with the
+fails without the edit. The gate scores it on both arms and accepts it only if
+it scores below 1.0 without the edit and higher with it. Your human partner approves it at release with the
 edit. Cite it with `collect W S --case <id>`; it is recorded once, however many
 times you collect.
 
@@ -77,11 +78,12 @@ defines the report and the proposal.
 | `anchor` | you edited or removed a frozen anchor line; restore it |
 | `budget` | `SKILL.md` grew past 450 words; move detail into `references/` |
 | `links` | a relative link the operation writes does not resolve; fix the path |
-| `eval-skipped` | a rule change needs a CLI and model: rerun with `--cli claude --model <model>` |
+| `eval-skipped` | a rule change or a cited case needs a CLI and model: rerun with `--cli claude --model <model>` |
 | `untested` | the skill has no eval case; the release step adds one |
 | `script-tests` | your `scripts/` edit breaks the skill's own tests |
 | `eval-failed` | the CLI could not score; rerun, it is never a score of zero |
 | `regression` | a case scored lower with the edit; revert that part |
+| `case-unproven` | a cited case passes without the edit or does not improve with it; make the case harder, or drop the edit if the model does not need it |
 
 ## dismiss
 

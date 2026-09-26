@@ -381,12 +381,18 @@ class NamedSkillTest(ProposerTest):
         self.assertIn("nowhere", err)
         self.assertFalse(self.out.exists())
 
-    def test_a_cited_case_is_the_evidence_the_gate_accepts(self) -> None:
+    def test_a_cited_case_the_edit_fixes_is_the_evidence_the_gate_accepts(self) -> None:
         self.fixture.add_cases("wayfinder", "strict-csp")
         self.prepare("--skill", "wayfinder")
         self.workspace("wayfinder", "references/csp.md").parent.mkdir(parents=True)
         self.workspace("wayfinder", "references/csp.md").write_text("Allow connect-src self.\n")
         code, printed, _ = self.collect("wayfinder", "--case", "strict-csp")
+        self.assertEqual((code, json.loads(printed)["reason"]), (1, "eval-skipped"))
+        fixes = mock.Mock(cli="claude", model="sonnet")
+        fixes.score.side_effect = [{"strict-csp": 0.0}, {"strict-csp": 1.0}]
+        with mock.patch.dict(eval_runner.RUNNERS, {"claude": mock.Mock(return_value=fixes)}):
+            code, printed, _ = self.collect("wayfinder", "--case", "strict-csp",
+                                            "--cli", "claude", "--model", "sonnet")
         report = json.loads(printed)
         self.assertEqual((code, report["passed"]), (0, True), report)
         self.assertEqual(self.skeleton("wayfinder")["evidence"], [{"type": "case", "id": "strict-csp"}])
