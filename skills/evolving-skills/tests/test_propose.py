@@ -346,6 +346,75 @@ class PrepareTest(ProposerTest):
         self.assertFalse(self.out.exists())
 
 
+class NamedSkillTest(ProposerTest):
+    """A skill your human partner names is staged without friction; a case is its evidence."""
+
+    def test_a_named_skill_is_staged_without_friction(self) -> None:
+        code, printed, _ = self.prepare("--skill", "wayfinder")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.names(printed), ["wayfinder"])
+        self.assertEqual(self.skeleton("wayfinder")["evidence"], [])
+        self.assertEqual(self.skeleton("wayfinder")["scope"], "global")
+        self.assertTrue(self.workspace("wayfinder", "SKILL.md").is_file())
+        self.assertIn("named by your human partner", (self.out / "brief.md").read_text())
+
+    def test_a_named_skill_stages_only_that_skill(self) -> None:
+        self.two_sessions("tdd", "global")
+        _, printed, _ = self.prepare("--skill", "wayfinder")
+        self.assertEqual(self.names(printed), ["wayfinder"])
+        self.assertFalse((self.out / "workspace" / "tdd").exists())
+
+    def test_a_named_skill_keeps_its_own_friction_as_evidence(self) -> None:
+        first, second = self.two_sessions("tdd", "global")
+        self.prepare("--skill", "tdd")
+        self.assertEqual(self.skeleton("tdd")["evidence"],
+                         [{"type": "friction", "id": first}, {"type": "friction", "id": second}])
+
+    def test_a_named_local_skill_resolves_in_the_project(self) -> None:
+        code, printed, _ = self.prepare("--skill", "check-inbox", "--scope", "local")
+        self.assertEqual((code, self.names(printed)), (0, ["check-inbox"]))
+        self.assertEqual(self.skeleton("check-inbox")["scope"], "local")
+
+    def test_a_named_skill_that_does_not_resolve_is_refused(self) -> None:
+        code, _, err = self.prepare("--skill", "nowhere")
+        self.assertEqual(code, 2)
+        self.assertIn("nowhere", err)
+        self.assertFalse(self.out.exists())
+
+    def test_a_cited_case_is_the_evidence_the_gate_accepts(self) -> None:
+        self.fixture.add_cases("wayfinder", "strict-csp")
+        self.prepare("--skill", "wayfinder")
+        self.workspace("wayfinder", "references/csp.md").parent.mkdir(parents=True)
+        self.workspace("wayfinder", "references/csp.md").write_text("Allow connect-src self.\n")
+        code, printed, _ = self.collect("wayfinder", "--case", "strict-csp")
+        report = json.loads(printed)
+        self.assertEqual((code, report["passed"]), (0, True), report)
+        self.assertEqual(self.skeleton("wayfinder")["evidence"], [{"type": "case", "id": "strict-csp"}])
+
+    def test_a_case_is_cited_once_across_collects(self) -> None:
+        self.fixture.add_cases("wayfinder", "strict-csp")
+        self.prepare("--skill", "wayfinder")
+        self.workspace("wayfinder", "references/csp.md").parent.mkdir(parents=True)
+        self.workspace("wayfinder", "references/csp.md").write_text("Allow connect-src self.\n")
+        self.collect("wayfinder", "--case", "strict-csp")
+        self.collect("wayfinder", "--case", "strict-csp")
+        self.assertEqual(self.skeleton("wayfinder")["evidence"], [{"type": "case", "id": "strict-csp"}])
+
+    def test_a_named_skill_without_a_case_is_insufficient(self) -> None:
+        self.prepare("--skill", "wayfinder")
+        self.workspace("wayfinder", "references/csp.md").parent.mkdir(parents=True)
+        self.workspace("wayfinder", "references/csp.md").write_text("Allow connect-src self.\n")
+        code, printed, _ = self.collect("wayfinder")
+        self.assertEqual((code, json.loads(printed)["reason"]), (1, "insufficient-evidence"))
+
+    def test_a_case_that_does_not_exist_is_insufficient(self) -> None:
+        self.prepare("--skill", "wayfinder")
+        self.workspace("wayfinder", "references/csp.md").parent.mkdir(parents=True)
+        self.workspace("wayfinder", "references/csp.md").write_text("Allow connect-src self.\n")
+        code, printed, _ = self.collect("wayfinder", "--case", "missing")
+        self.assertEqual((code, json.loads(printed)["reason"]), (1, "insufficient-evidence"))
+
+
 class CollectTest(ProposerTest):
     def test_a_new_reference_file_writes_a_proposal_the_static_gate_accepts(self) -> None:
         self.two_sessions("tdd", "global")

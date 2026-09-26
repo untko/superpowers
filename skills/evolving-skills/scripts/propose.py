@@ -47,6 +47,7 @@ class Candidate:
     sessions: set[str] = field(default_factory=set)
     recent: int = 0  # events in which this skill was the last one loaded
     skill_dir: Path | None = None
+    named: bool = False  # staged because your human partner named it, not by rank
 
 
 def _library_root() -> Path:
@@ -125,6 +126,17 @@ def _candidates(groups: dict[tuple[str, str], Candidate], library_root: Path,
     return sorted(kept, key=_rank)
 
 
+def _named(name: str, scope: str, groups: dict[tuple[str, str], Candidate], library_root: Path,
+           project: Path) -> Candidate:
+    """The one skill your human partner named, with whatever friction it has, ranked or not."""
+    skill_dir = _skill_dir(name, scope, library_root, project)
+    if skill_dir is None:
+        raise Usage(f"{name!r} does not resolve as a {scope} skill")
+    group = groups.get((name, scope)) or Candidate(name=name, scope=scope)
+    group.skill_dir, group.named = skill_dir, True
+    return group
+
+
 def _evidence(group: Candidate) -> list[dict]:
     """Every id behind the candidate, corrections first, in the order the log recorded them."""
     cited = []
@@ -171,8 +183,11 @@ def _brief(project: Path, work: Path, groups: list[Candidate]) -> str:
         lines += [f"## {group.name} ({group.scope})", "",
                   f"- corrections: {group.corrections}",
                   f"- sessions: {len(group.sessions)}",
-                  f"- events: {len(group.events)}",
-                  "", "Friction:", ""]
+                  f"- events: {len(group.events)}"]
+        if group.named:
+            lines.append("- named by your human partner: with no friction, cite a failing case "
+                         "(collect --case)")
+        lines += ["", "Friction:", ""]
         lines += [f"- {event.get('kind')}: {_excerpt(event.get('excerpt'))}"
                   for event in group.events]
         if notes.get(group.name):
@@ -301,8 +316,12 @@ def _prepare(args: argparse.Namespace) -> int:
         raise Usage("--limit must be at least 1")
     project = args.project.resolve()
     out = (args.out or project / RUNTIME / WORK_DIR).resolve()
-    groups = _candidates(_groups(_events(project)), args.library_root.resolve(), project)
-    groups = groups[: args.limit]
+    if args.skill:
+        groups = [_named(args.skill, args.scope, _groups(_events(project)),
+                         args.library_root.resolve(), project)]
+    else:
+        groups = _candidates(_groups(_events(project)), args.library_root.resolve(), project)
+        groups = groups[: args.limit]
     _work_dir(out)
     for group in groups:
         shutil.copytree(group.skill_dir, out / WORKSPACE / group.name, symlinks=False)
@@ -350,7 +369,12 @@ def _collect(args: argparse.Namespace) -> int:
     if not operations:
         raise Usage(f"no edit in workspace at {workspace}")
     _verify(operations, skill_dir, workspace)
-    proposal = {**skeleton, "operations": operations}
+    evidence = skeleton.get("evidence") if isinstance(skeleton.get("evidence"), list) else []
+    for case in args.case or []:
+        cited = {"type": "case", "id": case}
+        if cited not in evidence:
+            evidence = [*evidence, cited]
+    proposal = {**skeleton, "operations": operations, "evidence": evidence}
     path.write_text(json.dumps(proposal, indent=2) + "\n", encoding="utf-8")
     report = release_gate.check(
         proposal,
@@ -388,6 +412,8 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--library-root", type=Path, default=_library_root())
     prepare.add_argument("--out", type=Path, help=f"work directory (default: <project>/.superpowers/{WORK_DIR})")
     prepare.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    prepare.add_argument("--skill", help="stage only this skill, named by your human partner")
+    prepare.add_argument("--scope", choices=SCOPES, default="global", help="where --skill lives")
     collect = commands.add_parser("collect", help="turn a workspace edit into a proposal and gate it")
     collect.add_argument("work", type=Path)
     collect.add_argument("skill")
@@ -397,6 +423,7 @@ def _parser() -> argparse.ArgumentParser:
     collect.add_argument("--evals-root", type=Path, default=_library_root().parent / "evals")
     collect.add_argument("--cli", help="model CLI to run evals with, with --model")
     collect.add_argument("--model", help="model to run evals with, with --cli")
+    collect.add_argument("--case", action="append", help="cite a failing eval case as evidence")
     dismiss = commands.add_parser("dismiss", help="record a candidate's evidence as handled")
     dismiss.add_argument("work", type=Path)
     dismiss.add_argument("skill")

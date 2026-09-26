@@ -28,6 +28,18 @@ A skill is a candidate when its friction holds a correction, or the same frictio
 in two sessions. Ranked by corrections, then sessions, then the most recently
 loaded skill, then name.
 
+## A named skill
+
+`prepare --project P --skill S [--scope local]` stages only `S`, whether or not
+it has friction, and marks it in the brief as named by your human partner. Its
+skeleton keeps any friction `S` has; with none, the evidence is empty and the
+gate refuses it until you cite a case.
+
+The case comes first: a directory under `evals/<skill>/` holding the prompt that
+fails without the edit. Your human partner approves it at release with the
+edit. Cite it with `collect W S --case <id>`; it is recorded once, however many
+times you collect.
+
 ## collect
 
 `collect W <skill> [--wording] [--project P] [--cli claude --model M]` diffs
