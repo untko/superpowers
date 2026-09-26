@@ -50,6 +50,7 @@ them yourself; name the command and let the user type it.
 | A session is ending or needs a handoff | `wrap-session` |
 | Steps only a human can perform | `wizard` |
 | Diagrams or visual artifacts | `creative`; Draw.io specifically, `drawio` |
+| A remote MCP server needs building, exposing, or a client connected | `building-mcp-servers` |
 | A skill needs writing or editing | `writing-for-agents` |
 | Knowledge or a session lesson should be recorded in the user's Atlas | `update-atlas` |
 | A question may be answered by what the user has written in the Atlas | `ask-atlas` (owned by the Atlas repository) |
