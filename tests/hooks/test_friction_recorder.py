@@ -379,3 +379,44 @@ def test_stop_sweep_tags_each_event_with_skills_loaded_before_it(tmp_path):
     record(stop, library_root=library, harness="claude-code", now=NOW)
 
     assert [[s["name"] for s in e["skills"]] for e in _events(project)] == [[], ["tdd"]]
+
+
+def test_friction_is_blamed_only_on_skills_loaded_in_recent_turns(tmp_path):
+    project, library = _setup(tmp_path)
+    transcript = _write_transcript(
+        tmp_path / "t.jsonl",
+        [
+            _human("Plan the feature.", "p1"),
+            _tool_use("Skill", {"skill": "tdd"}),
+            _human("That's wrong, keep the fixture.", "p2"),
+            _human("Deploy it.", "p3"),
+            _human("Now the docs.", "p4"),
+            _human("That's wrong, the docs live elsewhere.", "p5"),
+        ],
+    )
+    stop = {"hook_event_name": "Stop", "session_id": "s1", "cwd": str(project),
+            "transcript_path": str(transcript)}
+
+    record(stop, library_root=library, harness="claude-code", now=NOW)
+
+    assert [[s["name"] for s in e["skills"]] for e in _events(project)] == [["tdd"], []]
+
+
+def test_live_hook_blames_only_recently_loaded_skills(tmp_path):
+    project, library = _setup(tmp_path)
+    transcript = _write_transcript(
+        tmp_path / "t.jsonl",
+        [
+            _human("Plan the feature.", "p1"),
+            _tool_use("Skill", {"skill": "tdd"}),
+            _human("Deploy it.", "p2"),
+            _human("Now the docs.", "p3"),
+            _human("And the changelog.", "p4"),
+        ],
+    )
+    payload = _prompt_payload(project, "That's wrong, the docs live elsewhere.")
+    payload["transcript_path"] = str(transcript)
+
+    record(payload, library_root=library, harness="claude-code", now=NOW)
+
+    assert _events(project)[0]["skills"] == []

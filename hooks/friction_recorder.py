@@ -18,6 +18,10 @@ else:  # hook entry point: python3 hooks/friction_recorder.py
     import transcripts
 
 EXCERPT_LIMIT = 500
+# Friction is blamed on a skill only while it was loaded in the current or the
+# previous ACTIVE_TURNS - 1 user turns; a skill loaded for planning hours ago did
+# not cause a failing deploy.
+ACTIVE_TURNS = 3
 LOG_NAME = "friction.jsonl"
 
 # Wording that says the agent got something wrong. A bare "don't" or "fix it" is
@@ -106,22 +110,33 @@ def _texts(message: Any) -> Iterator[str]:
                 yield block["text"]
 
 
-def _note_skills(
-    record: Any, skills: dict[str, dict[str, str]], library_root: Path, project: Path
-) -> None:
-    for skill_dir in _skill_dirs(record, library_root, project):
-        source = _source(skill_dir, library_root, project)
-        name = skill_dir.resolve().name
-        if source and name not in skills:
-            skills[name] = {"name": name, "source": source}
+class _LoadedSkills:
+    """Skills loaded so far, each with the user turn it was last loaded in."""
+
+    def __init__(self) -> None:
+        self.turn = 0
+        self._loaded: dict[str, tuple[dict[str, str], int]] = {}
+
+    def note(self, record: Any, library_root: Path, project: Path) -> None:
+        for skill_dir in _skill_dirs(record, library_root, project):
+            source = _source(skill_dir, library_root, project)
+            name = skill_dir.resolve().name
+            if source:
+                self._loaded[name] = ({"name": name, "source": source}, self.turn)
+
+    def active(self) -> list[dict[str, str]]:
+        """Skills loaded within the last ACTIVE_TURNS user turns, in first-load order."""
+        return [info for info, turn in self._loaded.values() if self.turn - turn < ACTIVE_TURNS]
 
 
 def loaded_skills(records: list[Any], library_root: Path, project: Path) -> list[dict[str, str]]:
-    """Skills loaded in the session (Skill tool, slash command, or SKILL.md read), first-load order."""
-    skills: dict[str, dict[str, str]] = {}
+    """Skills active at the end of the session (Skill tool, slash command, or SKILL.md read)."""
+    skills = _LoadedSkills()
     for record in records:
-        _note_skills(record, skills, library_root, project)
-    return list(skills.values())
+        skills.note(record, library_root, project)
+        if _human_prompt(record) is not None:
+            skills.turn += 1
+    return skills.active()
 
 
 def _excerpt(value: Any) -> str:
@@ -176,19 +191,20 @@ def _human_prompt(record: Any) -> str | None:
 def _swept_friction(
     records: list[Any], session: Any, library_root: Path, project: Path
 ) -> list[Friction]:
-    """All friction in the transcript, each tagged with the skills loaded before it."""
+    """All friction in the transcript, each tagged with the skills active before it."""
     friction = []
-    skills: dict[str, dict[str, str]] = {}
+    skills = _LoadedSkills()
     for record in records:
-        _note_skills(record, skills, library_root, project)
+        skills.note(record, library_root, project)
         prompt = _human_prompt(record)
         if prompt is not None:
             if _is_correction(prompt):
                 friction.append(
                     _friction_event(
-                        session, "correction", record.get("promptId"), prompt, list(skills.values())
+                        session, "correction", record.get("promptId"), prompt, skills.active()
                     )
                 )
+            skills.turn += 1
             continue
         if not isinstance(record, dict) or record.get("type") != "user":
             continue
@@ -201,7 +217,7 @@ def _swept_friction(
                         "tool-failure",
                         block.get("tool_use_id"),
                         block.get("content") or "",
-                        list(skills.values()),
+                        skills.active(),
                     )
                 )
     return friction

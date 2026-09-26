@@ -43,6 +43,10 @@ Add the three events to `~/.claude/settings.json` (or a project's
 `Stop` sweeps the transcript, so skill attribution is right even if you
 register only it.
 
+Friction is blamed only on skills loaded in the current or the two previous
+user turns. Loading a skill again restarts its window. A skill used for
+planning early in a long session is not blamed for later failures.
+
 ## Codex CLI
 
 Codex runs Claude-compatible command hooks and passes the payload as JSON on
