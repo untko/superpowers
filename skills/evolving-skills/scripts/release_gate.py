@@ -141,26 +141,32 @@ def _has_case(skill: str, case_id: object, evals_root: Path) -> bool:
     return any(case.name == case_id for case in find_cases(evals_root, skill))
 
 
-def _sufficient_evidence(skill: str, evidence: object, project: Path, evals_root: Path) -> bool:
-    """A correction, a failing case, or friction from at least two sessions, all verifiable."""
+def _sufficient_evidence(skill: str, evidence: object, project: Path,
+                         evals_root: Path) -> tuple[bool, list[str]]:
+    """Whether a correction, a case, or friction from two sessions is cited, and the cited cases.
+
+    A cited case counts here by existing; the eval later proves it fails without the edit.
+    """
     if not isinstance(evidence, list):
-        return False
+        return False, []
     friction = _friction_about(skill, project)
-    sessions = set()
+    sessions, cases, corrected = set(), [], False
     for item in evidence:
         if not isinstance(item, dict):
             continue
         kind, item_id = item.get("type"), item.get("id")
         if kind == "case" and _has_case(skill, item_id, evals_root):
-            return True
+            if item_id not in cases:
+                cases.append(item_id)
+            continue
         event = friction.get(item_id) if isinstance(item_id, str) else None
         if event is None:
             continue
         if kind == "correction" and event.get("kind") == "correction":
-            return True
+            corrected = True
         if kind == "friction" and _single_line(event.get("session_id")):
             sessions.add(event["session_id"])
-    return len(sessions) >= MIN_FRICTION_SESSIONS
+    return bool(cases) or corrected or len(sessions) >= MIN_FRICTION_SESSIONS, cases
 
 
 def _normalized(operation: dict, skill_copy: Path) -> dict:
@@ -298,13 +304,10 @@ def _classify(operations: list[dict], before: Limits) -> tuple[str, list[str]]:
     return "static", review
 
 
-def _check_rule_change(skill_dir: Path, skill_copy: Path, report: Report, *,
-                       runner: Runner, evals_root: Path) -> None:
-    """Score every case twice, on the original skill and on the edited copy, and reject any drop."""
+def _score(skill_dir: Path, skill_copy: Path, report: Report, *, runner: Runner,
+           cases: list[Path]) -> None:
+    """Score the cases twice, on the original skill and on the edited copy, into the report."""
     try:
-        cases = find_cases(evals_root, skill_dir.name)
-        if not cases:
-            raise Rejected("untested", f"no cases under {evals_root / skill_dir.name}")
         without = runner.score(skill_dir, cases)
         with_edit = runner.score(skill_copy, cases)
     except EvalFailed as failure:
@@ -321,11 +324,42 @@ def _check_rule_change(skill_dir: Path, skill_copy: Path, report: Report, *,
             for case in cases
         },
     }
+
+
+def _check_rule_change(skill_dir: Path, skill_copy: Path, report: Report, *,
+                       runner: Runner, evals_root: Path) -> None:
+    """Score every case, on the original skill and on the edited copy, and reject any drop."""
+    try:
+        cases = find_cases(evals_root, skill_dir.name)
+    except EvalFailed as failure:
+        raise Rejected("eval-failed", str(failure)) from failure
+    if not cases:
+        raise Rejected("untested", f"no cases under {evals_root / skill_dir.name}")
+    _score(skill_dir, skill_copy, report, runner=runner, cases=cases)
     regressed = sorted(name for name, score in report.eval["cases"].items()
                        if score["with"] < score["without"])
     if regressed:
         raise Rejected("regression", f"score fell on: {', '.join(regressed)}")
     report.checks.append("eval")
+
+
+def _check_cited_cases(skill_dir: Path, skill_copy: Path, report: Report, cited: list[str], *,
+                       runner: Runner, evals_root: Path) -> None:
+    """A cited case is evidence only if it fails without the edit and scores higher with it."""
+    if report.eval is None:
+        try:
+            cases = [case for case in find_cases(evals_root, skill_dir.name) if case.name in cited]
+        except EvalFailed as failure:
+            raise Rejected("eval-failed", str(failure)) from failure
+        _score(skill_dir, skill_copy, report, runner=runner, cases=cases)
+    scores = report.eval["cases"]
+    passing = [name for name in cited if scores[name]["without"] >= 1.0]
+    if passing:
+        raise Rejected("case-unproven", f"scores 1.0 without the edit: {', '.join(passing)}")
+    unimproved = [name for name in cited if scores[name]["delta"] <= 0]
+    if unimproved:
+        raise Rejected("case-unproven", f"no higher with the edit: {', '.join(unimproved)}")
+    report.checks.append("cited-cases")
 
 
 def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: Path,
@@ -340,7 +374,8 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
         raise Rejected("not-itemized", "operations must each add, change, or remove one line")
     report.checks.append("itemized")
     try:
-        sufficient = _sufficient_evidence(skill_dir.name, proposal.get("evidence"), project, evals_root)
+        sufficient, cited = _sufficient_evidence(skill_dir.name, proposal.get("evidence"),
+                                                 project, evals_root)
     except EvalFailed as failure:  # a malformed case tree, not missing evidence
         raise Rejected("eval-failed", str(failure)) from failure
     if not sufficient:
@@ -364,7 +399,7 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
         report.checks.append("budget")
         _check_links(operations, skill_dir, skill_copy)
         report.checks.append("links")
-        if report.kind == "rule-change" and runner is None:
+        if (report.kind == "rule-change" or cited) and runner is None:
             raise Rejected("eval-skipped", "no runner chosen")
         if any(_top_dir(op) == "scripts" for op in operations):
             if (skill_copy / "tests").is_dir():
@@ -374,6 +409,9 @@ def _run_checks(proposal: dict, report: Report, *, library_root: Path, project: 
                 report.review.append("scripts changed and the skill has no tests")
         if report.kind == "rule-change":
             _check_rule_change(skill_dir, skill_copy, report, runner=runner, evals_root=evals_root)
+        if cited:
+            _check_cited_cases(skill_dir, skill_copy, report, cited, runner=runner,
+                               evals_root=evals_root)
 
 
 def check(proposal: dict, *, library_root: Path, project: Path, evals_root: Path,

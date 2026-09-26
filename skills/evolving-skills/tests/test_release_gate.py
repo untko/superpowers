@@ -156,8 +156,9 @@ class EvidenceTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def cite(self, *evidence: tuple[str, str]) -> release_gate.Report:
+        """Check with a runner under which every case fails without the edit and passes with it."""
         cited = [{"type": kind, "id": event_id} for kind, event_id in evidence]
-        return self.fixture.check(proposal(evidence=cited))
+        return self.fixture.check(proposal(evidence=cited), runner=FixingRunner())
 
     def test_friction_from_one_session_is_insufficient(self) -> None:
         first = self.fixture.log_friction("s2", "tool-failure", "t1")
@@ -176,6 +177,11 @@ class EvidenceTest(unittest.TestCase):
     def test_one_failing_case_is_sufficient(self) -> None:
         self.fixture.add_cases("tdd", "skips-red")
         self.assertTrue(self.cite(("case", "skips-red")).passed)
+
+    def test_a_cited_case_without_a_runner_is_unscored(self) -> None:
+        self.fixture.add_cases("tdd", "skips-red")
+        cited = [{"type": "case", "id": "skips-red"}]
+        self.assertEqual(self.fixture.check(proposal(evidence=cited)).reason, "eval-skipped")
 
     def test_a_case_is_a_directory_not_a_file_stem(self) -> None:
         cases = self.fixture.evals / "tdd"
@@ -453,6 +459,71 @@ class StubRunner:
         if self.failure is not None:
             raise eval_runner.EvalFailed(self.failure)
         return {case.name: self.arms[len(self.calls) - 1][case.name] for case in cases}
+
+
+class FixingRunner(StubRunner):
+    """Every case scores 0.0 on the original skill and 1.0 on the edited copy."""
+
+    def score(self, skill_dir: Path, cases: list[Path]) -> dict[str, float]:
+        self.calls.append((skill_dir, (skill_dir / "SKILL.md").read_text(),
+                           tuple(case.name for case in cases)))
+        return {case.name: float(len(self.calls) % 2 == 0) for case in cases}
+
+
+class CitedCaseTest(unittest.TestCase):
+    """A cited case is evidence only when it fails without the edit and improves with it."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.fixture = Fixture(Path(self.tmp.name))
+        self.fixture.add_cases("tdd", "skips-red", "other")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def cite(self, runner, operations=None, *extra: dict) -> release_gate.Report:
+        evidence = [{"type": "case", "id": "skips-red"}, *extra]
+        overrides = {"evidence": evidence}
+        if operations is not None:
+            overrides["operations"] = operations
+        return self.fixture.check(proposal(**overrides), runner=runner)
+
+    def test_a_case_that_already_passes_is_not_evidence(self) -> None:
+        report = self.cite(StubRunner(without={"skips-red": 1.0}, with_edit={"skips-red": 1.0}))
+        self.assertEqual(report.reason, "case-unproven")
+        self.assertIn("skips-red", report.detail)
+        self.assertIn("without", report.detail)
+
+    def test_a_case_the_edit_does_not_improve_is_not_evidence(self) -> None:
+        report = self.cite(StubRunner(without={"skips-red": 0.5}, with_edit={"skips-red": 0.5}))
+        self.assertEqual(report.reason, "case-unproven")
+        self.assertIn("skips-red", report.detail)
+
+    def test_a_case_the_edit_fixes_is_evidence_and_is_reported(self) -> None:
+        report = self.cite(StubRunner(without={"skips-red": 0.0}, with_edit={"skips-red": 1.0}))
+        self.assertTrue(report.passed, report)
+        self.assertEqual(report.eval["cases"],
+                         {"skips-red": {"without": 0.0, "with": 1.0, "delta": 1.0}})
+
+    def test_a_static_edit_scores_only_the_cited_case(self) -> None:
+        runner = StubRunner(without={"skips-red": 0.0}, with_edit={"skips-red": 1.0})
+        self.cite(runner)
+        self.assertEqual([call[2] for call in runner.calls], [("skips-red",), ("skips-red",)])
+
+    def test_a_rule_change_reuses_its_scores_for_the_cited_case(self) -> None:
+        runner = StubRunner(without={"skips-red": 1.0, "other": 0.5},
+                            with_edit={"skips-red": 1.0, "other": 0.5})
+        report = self.cite(runner, [RULE_CHANGE])
+        self.assertEqual(report.reason, "case-unproven")
+        self.assertEqual(len(runner.calls), 2)
+
+    def test_a_correction_does_not_excuse_an_unproven_case(self) -> None:
+        report = self.cite(StubRunner(without={"skips-red": 1.0}),
+                           None, {"type": "correction", "id": "s1:correction:p1"})
+        self.assertEqual(report.reason, "case-unproven")
+
+    def test_a_correction_alone_needs_no_runner(self) -> None:
+        self.assertTrue(self.fixture.check(proposal()).passed)
 
 
 class RuleChangeEvalTest(ScriptedSkill, unittest.TestCase):

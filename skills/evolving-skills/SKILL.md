@@ -60,7 +60,7 @@ python3 "$SKILL_DIR/scripts/propose.py" collect "$W" <skill> --project "$PROJECT
 Add `--wording` when a `SKILL.md` line is reworded without changing a rule. It
 stops when the JSON report prints. Read `reason` and `detail`, fix
 `W/workspace/<skill>/`, collect again. Repeat until the report says `passed`, or
-until it says `eval-skipped` for a rule change — then ask your human partner for
+until it says `eval-skipped` — then ask your human partner for
 a `--cli` and `--model`, and collect again with them. `references/proposer.md`
 maps every rejection reason to the edit it needs.
 
