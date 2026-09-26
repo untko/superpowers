@@ -29,6 +29,10 @@ Read `W/brief.md`: one section per candidate, its scope, its correction, session
 and event counts, and one bullet per friction excerpt. Stage another repository
 only when your human partner named that repository on the command line.
 
+When your human partner names a skill to change, add `--skill <name>` (and
+`--scope local` for a project skill). With no friction behind it, write a
+failing case first and cite it: `collect ... --case <id>`.
+
 ## 2. Judge each candidate
 
 For each name `prepare` printed, in that order. Friction is tagged with every
