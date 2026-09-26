@@ -2,6 +2,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -106,6 +108,65 @@ def test_ordinary_prompt_appends_nothing(tmp_path):
     )
 
     assert _events(project) == []
+
+
+# Prompts from real logs that the old pattern took for corrections: preferences,
+# plain instructions, and other people's words pasted or quoted in.
+NOT_CORRECTIONS = [
+    "1. alright fix it . i don't want them to be aggresive too. like the nudges\n2. fix",
+    "agree with all, record the redaction as a follow-up.\n\nregarding q7. i don't think "
+    "we have the email server setup yet.",
+    "also we don't have the ability to override entitlements yet?",
+    "approved. mostly I don't want to accidentally add PR to the original repo.",
+    "we don't really need to test the skills a lot with workers.",
+    "yes, fix it and vacuum the journal",
+    "don't focus on skill eval for now",
+    'it\'s done. but i got this feedback too.\n<pasted_content id="1">\nThe deploy was '
+    "wrong about the version.\n</pasted_content>",
+    'are you saying we\'re going to use those? "you forgot to seed the vault"',
+    "> No, that's wrong\nthis was their reply, what do you think?",
+]
+CORRECTIONS = [
+    "No, that's wrong. Don't mock the database.",
+    "no. use opencode for this",
+    "stop using grep for this, use the index",
+    "that's not what I asked for",
+    "I said the main checkout stays on main.",
+    "you forgot to run the tests before claiming it passes",
+    "why did you commit uv.lock?",
+    "don't do that again, ask first",
+    "revert that change",
+]
+
+
+@pytest.mark.parametrize("prompt", NOT_CORRECTIONS)
+def test_instructions_and_quoted_words_are_not_corrections(tmp_path, prompt):
+    project, library = _setup(tmp_path)
+    record(_prompt_payload(project, prompt), library_root=library, harness="claude-code", now=NOW)
+    assert _events(project) == []
+
+
+@pytest.mark.parametrize("prompt", CORRECTIONS)
+def test_saying_the_agent_got_it_wrong_is_a_correction(tmp_path, prompt):
+    project, library = _setup(tmp_path)
+    record(_prompt_payload(project, prompt), library_root=library, harness="claude-code", now=NOW)
+    assert [e["kind"] for e in _events(project)] == ["correction"]
+
+
+def test_worktree_friction_lands_in_the_main_checkout(tmp_path):
+    project, library = _setup(tmp_path)
+    gitdir = project / ".git" / "worktrees" / "wt"
+    gitdir.mkdir(parents=True)
+    (gitdir / "commondir").write_text("../..\n", encoding="utf-8")
+    worktree = project / ".worktrees" / "wt"
+    worktree.mkdir(parents=True)
+    (worktree / ".git").write_text(f"gitdir: {gitdir}\n", encoding="utf-8")
+
+    record(_prompt_payload(worktree, "that's wrong"), library_root=library,
+           harness="claude-code", now=NOW)
+
+    assert [e["kind"] for e in _events(project)] == ["correction"]
+    assert not (worktree / ".superpowers").exists()
 
 
 def test_skills_are_attributed_once_each_with_their_source(tmp_path):
