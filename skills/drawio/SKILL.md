@@ -1,7 +1,7 @@
 ---
 name: drawio
 version: "2.2.0"
-description: "Create, edit, replicate, import, validate, and export Draw.io diagrams through a YAML-first offline workflow. Use for architecture, networks, flowcharts, swimlanes, UML, ER diagrams, org charts, mind maps, cloud infrastructure, Mermaid, CSV, existing .drawio files, style presets and themes, and formula-bearing diagrams. For papers, theses, dissertations, journals, conferences, IEEE submissions, and other publications, use drawio-academic-skills instead. This base provides the shared CLI, schemas, references, themes, styles, export helpers, and optional live-refinement backend."
+description: "Use when creating, editing, importing, validating, or exporting Draw.io diagrams (architecture, flowcharts, UML, ER, Mermaid or CSV input, existing .drawio files) with a YAML-first offline workflow. For academic papers, use drawio-academic-skills."
 license: MIT
 homepage: https://github.com/bahayonghang/drawio-skills
 compatibility: "Node 20+ for the YAML/CLI workflow. draw.io Desktop is optional and only needed for PNG/PDF/JPG or embedded .drawio.svg exports. No MCP server is required for offline authoring; the optional live-refinement backend needs a browser/MCP provider."

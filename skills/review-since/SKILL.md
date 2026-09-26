@@ -1,6 +1,6 @@
 ---
 name: review-since
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Use when reviewing a branch, PR, or work in progress since a commit, tag, or merge-base, against both this repo's coding standards and the originating spec. Runs the two reviews in parallel and reports them side by side."
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
