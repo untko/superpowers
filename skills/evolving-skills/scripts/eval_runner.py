@@ -296,10 +296,14 @@ def _metadata(lines: list[str]) -> dict[str, object]:
 
 
 def _permission(allowed: list[str]) -> str:
-    """Deny the tools a case does not allow, and anything outside the work dir."""
+    """Deny edits a case does not allow, and anything outside the work dir.
+
+    Bash is never denied: opencode then drops the bash tool from the request,
+    and the free tier refuses a request without it ("can only be used from
+    within OpenCode"). The external_directory deny still confines bash to the
+    work dir.
+    """
     denied = {}
-    if "Bash" not in allowed:
-        denied["bash"] = "deny"
     if not ({"Edit", "Write"} & set(allowed)):
         denied["edit"] = "deny"
     denied["external_directory"] = "deny"
