@@ -57,6 +57,9 @@ Rollback is the stub; removing the site while DNS still points at the host
 hands the name to whatever answers by default. Done when rollback is one file
 copy.
 
+Serve any human pages beside the endpoint from the proxy:
+[`references/public-pages.md`](references/public-pages.md).
+
 ## 8. Verify with a real client
 
 Connect a real client with a never-seen account: list tools, run one real call,
