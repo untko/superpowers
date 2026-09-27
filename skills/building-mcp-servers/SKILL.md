@@ -20,6 +20,8 @@ The gateway owns identity, policy, limits, audit, and protocol translation. The
 backend owns the work. The backend listens privately, trusts only a service
 credential, and never sees an end-user token. Done when the backend is
 unreachable from outside the host.
+Admin tools, audit records, and test fakes of the database:
+[`references/operator-admin.md`](references/operator-admin.md).
 
 ## 3. Bind tokens to this resource
 
