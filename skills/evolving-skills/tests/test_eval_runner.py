@@ -499,10 +499,10 @@ class OpencodeEvalTest(unittest.TestCase):
             self.score()
         self.assertEqual(self.agent()["auth"], str(auth.resolve()))
 
-    def test_a_case_that_allows_no_bash_or_edit_denies_both(self) -> None:
+    def test_a_case_that_allows_no_edit_denies_edit_but_never_bash(self) -> None:
         self.score()
         self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
-                         {"bash": "deny", "edit": "deny", "external_directory": "deny"})
+                         {"edit": "deny", "external_directory": "deny"})
 
     def test_a_case_that_allows_both_still_stays_in_its_work_dir(self) -> None:
         self.write_prompt(self.case, "allowed_tools: [Read, Write, Bash]", "Go.")
@@ -514,13 +514,13 @@ class OpencodeEvalTest(unittest.TestCase):
         self.write_prompt(self.case, "allowed_tools:\n  - Read\n  - Write", "Go.")
         self.score()
         self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
-                         {"bash": "deny", "external_directory": "deny"})
+                         {"external_directory": "deny"})
 
-    def test_a_case_with_no_allowed_tools_denies_both(self) -> None:
+    def test_a_case_with_no_allowed_tools_denies_edit(self) -> None:
         (self.case / "prompt.md").write_text("Just answer the question.\n")
         self.score()
         self.assertEqual(json.loads(self.agent()["env"]["OPENCODE_PERMISSION"]),
-                         {"bash": "deny", "edit": "deny", "external_directory": "deny"})
+                         {"edit": "deny", "external_directory": "deny"})
 
     def test_every_case_runs_in_a_work_dir_of_its_own(self) -> None:
         second = self.root / "evals" / "tdd" / "quality" / "one-assertion"
