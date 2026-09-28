@@ -26,50 +26,50 @@ free model.
 | `opencode-scout` | OpenCode free roster, pinned model first | read-only exploration; `ISOLATED` for an excerpt only | hosted free model |
 | `opencode-builder` | OpenCode free roster | one bounded edit with named files and checks | hosted free model |
 | `luna-max-worker` | `gpt-5.6-luna`, max effort, via Codex | hard but bounded work: cross-cutting change, high-risk verification | OpenAI, user's account |
-| `luna6-max-worker` | `gpt-6-luna`, max effort, via Codex | same, when the account supports the model | OpenAI, user's account |
+| `luna6-max-worker` | `gpt-6-luna`, max effort, via Codex | same, when the Codex binary accepts the model | OpenAI, user's account |
 
-2026-09-29: `gpt-6-luna` was rejected on the user's ChatGPT account ("not
-supported when using Codex with a ChatGPT account"). Use `luna-max-worker`
-unless a direct run shows it accepted.
+Use the requested Luna generation. Older PATH Codex can reject Luna 6 while
+app-bundled Codex accepts it; use the [shared launcher](references/codex-luna.md).
+Report rejection without changing model or effort.
 
-Never fall back to a paid model, even when free quota runs out. A worker is not
-a native subagent of the harness: name it as what it is.
+Never fall back to a paid model when free quota runs out. CLI workers are
+subprocesses; Codex's Luna roles are native subagents. Name the route accurately.
 
 Visual work: workers cannot see images. The brief lists layout checks that run
 as code, and the parent reviews screenshots itself.
 
 ## 3. Write the brief
 
-The worker sees only the brief. It carries the outcome wanted, the files or
-directories the worker owns, constraints, and the exact commands whose results
-it must report. Optional first lines steer the relay: `DIR: /abs/path`,
-`ISOLATED` (scouts), `MODE: read-only` (Luna). Builders get a git worktree,
-never the main checkout, and never two builders in one checkout.
+Give a self-contained brief: outcome, owned files or questions, constraints,
+and exact checks. Editing workers get separate git worktrees, never the main
+checkout or another worker's checkout.
+
+The Claude Code relays read optional first lines from the brief, strip them, and
+pass the rest verbatim: `DIR: /abs/path` (directory or worktree the worker may
+use; default the current directory), `ISOLATED` (scouts only: empty temporary
+workspace, so the brief carries all the text), `MODE: read-only` (Luna; default
+`workspace-write`, which needs its own worktree).
 
 ## 4. Invoke
 
-- **Claude Code:** the Agent tool with `subagent_type` set to the worker name.
-  Each is a thin Haiku relay with only Bash; it runs the launcher or Codex once
-  and returns the output. Installed by the opencode-subagents package
-  (`install.sh`) and `~/.claude/agents`.
-- **Codex:** the OpenCode launcher through the shell ([opencode](references/opencode.md));
-  Luna through its own agents (`luna_max_worker`, `luna6_max_worker`), spawned
-  with the harness's multi-agent tools.
-- **Any other CLI:** run the launcher or `codex exec` directly from the shell;
-  both forms are in the references.
+- **Codex:** native `luna6_max_worker` / `luna_max_worker`, with
+  `fork_turns: "none"`; OpenCode uses its shell launcher.
+- **Claude Code:** the Agent tool with `subagent_type` `opencode-scout`,
+  `opencode-builder`, `luna-max-worker` or `luna6-max-worker`. Each is a thin
+  Haiku relay with only Bash that runs the launcher once. Or run the launcher
+  through Bash.
+- **Antigravity, Gemini, other hosts:** shared launcher through their shell
+  tool. Agent names are host-specific; the shell route is portable.
 
-A relay's report counts only if it opens with the real `exit=N` line. A report
-without one, or one that only repeats the brief, is a delegation failure: the
-relay answered from the prompt instead of running the worker.
+Subprocess handoffs need the real `exit=N`; local launcher errors are failures.
+Native responses use harness completion, not invented process exits.
 
 ## 5. Validate
 
-Treat every nonzero exit as delegation failure and read the diagnostics before
-choosing. On success, check the result deterministically: tests, lint, type
-checks, the diff, observable behavior. Confirm the worker stayed inside its
-ownership and left unrelated work alone. The task is complete when those checks
-pass or a concrete failure is escalated to the user. Do not spend frontier-model
-effort restyling valid output that merely differs in preference.
+Read failure diagnostics. On success, verify the requested checks, observable
+behavior, diff, and ownership boundaries. Preserve unrelated work. Finish when
+checks pass or report a concrete blocker. Accept valid output without restyling
+it merely for preference.
 
 Worker mechanics: [OpenCode launcher](references/opencode.md) ·
 [Codex Luna](references/codex-luna.md)
