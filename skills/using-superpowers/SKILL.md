@@ -44,6 +44,7 @@ them yourself; name the command and let the user type it.
 | Review feedback needs acting on | `receiving-code-review` |
 | A merge or rebase conflict is in progress | `resolving-merge-conflicts` |
 | Two or more independent tasks can run in parallel | `dispatching-parallel-agents` |
+| A bounded task should go to an OpenCode free model or a Codex Luna worker | `subagent-workers` |
 | Work needs an isolated workspace | `using-git-worktrees` |
 | About to claim work is done | `verification-before-completion` |
 | A finished branch needs integrating | `finishing-a-development-branch` |

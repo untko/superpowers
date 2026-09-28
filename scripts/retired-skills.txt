@@ -16,3 +16,5 @@ claude-handoff
 code-review
 # Stray copies superseded by to-spec:
 prd
+# Folded into subagent-workers:
+opencode-subagents
