@@ -1,25 +1,24 @@
 ---
 name: visual-design
-description: "Create visual design artifacts: architecture diagrams (HTML/SVG), one-off HTML pages (landing/decks/prototypes), and hand-drawn Excalidraw diagrams. Covers three output formats — pick the right one for your task."
+description: "Create diagram artifacts: architecture diagrams (HTML/SVG), hand-drawn Excalidraw diagrams, and Mermaid diagrams. Frontend UI and page design belongs to the impeccable skill."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [design, diagrams, visualization, HTML, SVG, Excalidraw, architecture, prototype, creative]
+    tags: [diagrams, visualization, SVG, Excalidraw, Mermaid, architecture, creative]
     related_skills: []
 ---
 
 # Visual Design Artifacts
 
-Create visual output in three formats. Pick the section that matches your task:
+Create diagrams in these formats. Pick the section that matches your task. For landing pages, app UI, or other frontend design, use the `impeccable` skill instead.
 
 | Output | Use When | Section |
 |--------|----------|---------|
 | Dark-themed HTML/SVG architecture diagram | System architecture, cloud infra, microservice maps | → [Architecture Diagrams](#1-architecture-diagrams) |
-| One-off HTML page (landing, deck, prototype) | Polished web artifacts, pitch decks, UI mockups | → [HTML Design](#2-html-design) |
-| Hand-drawn Excalidraw JSON diagram | Whiteboard-style sketches, flowcharts, quick architecture | → [Excalidraw Diagrams](#3-excalidraw-diagrams) |
+| Hand-drawn Excalidraw JSON diagram | Whiteboard-style sketches, flowcharts, quick architecture | → [Excalidraw Diagrams](#2-excalidraw-diagrams) |
 | Mermaid diagram (SVG/PNG/ASCII) via agentic-mermaid | Flowcharts, sequence diagrams, state machines, Gantt, mindmaps, architecture-beta | → Read [Mermaid Graph](mermaid-graph/SKILL.md) |
 
 If a more specialized skill exists for the subject (e.g., a specific diagram type), prefer that. These are general-purpose visual design fallbacks.
@@ -81,52 +80,7 @@ Full HTML template: `references/architecture-template.html`
 
 ---
 
-## 2. HTML Design
-
-Design one-off HTML artifacts: landing pages, pitch decks, prototypes. Preserves Claude Design's design taste for CLI/API environments.
-
-**Best suited for:** landing pages, pitch decks, UI prototypes, design artifacts that need to look polished.
-
-### Design Process
-1. **Pick a bold, content-informed color palette** — should feel designed for THIS topic
-2. **Dominance over equality** — one color dominates (60-70%), 1-2 supporting tones, one sharp accent
-3. **Commit to a visual motif** — rounded image frames, icons in colored circles, thick single-side borders
-4. **Every slide/page needs a visual element** — image, chart, icon, or shape; text-only is forgettable
-
-### Color Palettes
-
-| Theme | Primary | Secondary | Accent |
-|-------|---------|-----------|--------|
-| Midnight Executive | `1E2761` | `CADCFC` | `FFFFFF` |
-| Forest & Moss | `2C5F2D` | `97BC62` | `F5F5F5` |
-| Coral Energy | `F96167` | `F9E795` | `2F3C7E` |
-| Warm Terracotta | `B85042` | `E7E8D1` | `A7BEAE` |
-| Ocean Gradient | `065A82` | `1C7293` | `21295C` |
-| Charcoal Minimal | `36454F` | `F2F2F2` | `212121` |
-| Teal Trust | `028090` | `00A896` | `02C39A` |
-| Berry & Cream | `6D2E46` | `A26769` | `ECE2D0` |
-| Sage Calm | `84B59F` | `69A297` | `50808E` |
-| Cherry Bold | `990011` | `FCF6F5` | `2F3C7E` |
-
-### Typography
-- Choose an interesting font pairing — don't default to Arial
-- Slide titles: 36-44pt bold; Section headers: 20-24pt bold; Body: 14-16pt; Captions: 10-12pt muted
-
-### Common Mistakes to Avoid
-- Don't repeat the same layout — vary columns, cards, and callouts
-- Don't center body text — left-align paragraphs
-- Don't default to blue — pick topic-specific colors
-- Don't create text-only slides
-- Don't use accent lines under titles (hallmark of AI-generated slides)
-
-### Output
-- Single self-contained `.html` file
-- Save to user-specified path or `./[name].html`
-- Open with `xdg-open` (Linux) or `open` (macOS)
-
----
-
-## 3. Excalidraw Diagrams
+## 2. Excalidraw Diagrams
 
 Create diagrams by writing standard Excalidraw element JSON and saving as `.excalidraw` files. Drag-and-drop onto [excalidraw.com](https://excalidraw.com) for viewing and editing.
 
@@ -193,7 +147,7 @@ Array order = z-order (first = back, last = front). Emit: background zones → s
 
 ---
 
-## 4. Mermaid Diagrams
+## 3. Mermaid Diagrams
 
 When the request involves creating, rendering, validating, or editing a Mermaid
 diagram, read and follow the nested [Mermaid Graph](mermaid-graph/SKILL.md)

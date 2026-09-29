@@ -4,6 +4,8 @@ Generate **several radically different UI variations** on a single route, switch
 
 If the question is about logic/state rather than what something looks like, this is the wrong branch. Use [LOGIC.md](LOGIC.md).
 
+If the goal is to design, refine, or iterate on the real UI rather than answer a question with throwaway variants, this is the wrong skill. Use `impeccable`.
+
 ## When this is the right shape
 
 - "What should this page look like?"
