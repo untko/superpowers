@@ -8,9 +8,15 @@
 # in the way is moved to $BACKUP. Names in scripts/retired-skills.txt are
 # moved out of the hub and CLI dirs the same way.
 #
+# This script owns the repo -> hub layer. When $SKILLS_SYNC is executable, it
+# owns the hub -> CLI layer (and honors its per-CLI disable list), so this
+# script only clears real directories out of its way and then runs it.
+# Without it, this script links every library skill into every CLI itself.
+#
 # Usage: scripts/link-skills.sh [--dry-run]
 # Env:   SKILLS_HUB (default ~/.agents/skills)
 #        SKILLS_TARGETS (space-separated CLI skill dirs; defaults below)
+#        SKILLS_SYNC (default ~/.agents/bin/sync-skills.sh)
 
 set -euo pipefail
 
@@ -24,6 +30,7 @@ DEFAULT_TARGETS="$HOME/.claude/skills $HOME/.codex/skills $HOME/.config/opencode
 TARGETS="${SKILLS_TARGETS:-$DEFAULT_TARGETS}"
 BACKUP="$(dirname "$HUB")/skills-replaced/$(date +%Y%m%d-%H%M%S)"
 RETIRED="$REPO/scripts/retired-skills.txt"
+SYNC="${SKILLS_SYNC:-$HOME/.agents/bin/sync-skills.sh}"
 
 run() {
   if $DRY_RUN; then echo "  would: $*"; else "$@"; fi
@@ -88,13 +95,23 @@ for skill in "$SKILLS"/*/; do
   ensure_link "$HUB/$name" "$SKILLS/$name"
   for dir in $TARGETS; do
     [[ -d "$dir" ]] || continue
-    ensure_link "$dir/$name" "$HUB/$name"
+    if [[ -x "$SYNC" ]]; then
+      # The sync script skips real directories; clear drift out of its way.
+      [[ -e "$dir/$name" && ! -L "$dir/$name" ]] && stash "$dir/$name"
+    else
+      ensure_link "$dir/$name" "$HUB/$name"
+    fi
   done
 done
 
 prune "$HUB"
-for dir in $TARGETS; do
-  [[ -d "$dir" ]] && prune "$dir"
-done
+if [[ -x "$SYNC" ]]; then
+  echo "hub -> CLI links: $SYNC"
+  if $DRY_RUN; then "$SYNC" --dry-run; else "$SYNC"; fi
+else
+  for dir in $TARGETS; do
+    [[ -d "$dir" ]] && prune "$dir"
+  done
+fi
 
 echo "done: $(find "$SKILLS" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ') skills linked from $SKILLS"

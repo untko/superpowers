@@ -211,6 +211,10 @@ scripts/link-skills.sh --dry-run   # show what would change
 scripts/link-skills.sh             # link repo -> ~/.agents/skills -> each CLI
 ```
 
+If `~/.agents/bin/sync-skills.sh` exists (override with `SKILLS_SYNC`), the
+script links repo -> `~/.agents/skills` itself and hands the CLI links to that
+script, which honors a per-CLI disable list.
+
 Run it after adding, renaming, or retiring a skill. Retired names go in
 `scripts/retired-skills.txt`. Nothing is ever deleted; displaced copies move
 to `~/.agents/skills-replaced/`.
