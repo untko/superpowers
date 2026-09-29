@@ -16,7 +16,21 @@ robots.txt audit fetches `/robots.txt` from inside the page, so
 even though the file is served. On pages that allow no script, the directive
 grants nothing else.
 
+## Pages that render caller output
+
+A page that renders caller-sized output, such as Markdown to HTML, runs on the
+request path of the process that serves MCP traffic. Parse time and page
+weight grow with the output. Cap the input the page renders, say on the page
+that it was cut, and keep the full text available unrendered. Render off the
+event loop so a long output cannot stall tool calls.
+
+A size comparison must not count the cap as a saving: compare the full size,
+or show no figure.
+
 ## Done
 
 Lighthouse scores 95 or more in every category, and the page headers still
 carry no `'unsafe-inline'`.
+
+An output over the cap renders a cut notice, and the full text is still on the
+page.
