@@ -26,3 +26,22 @@ Local edits since import:
 - `to-spec`: one checkpoint (draft review, seams included) before publishing;
   Open Questions and Acceptance Criteria sections; one story per distinct
   behaviour; `needs-info` label while questions stay open.
+
+## danielmiessler/Personal_AI_Infrastructure — Tldraw 1.0.1 (MIT, Copyright (c) 2025-2026 Daniel Miessler)
+
+Source: https://github.com/danielmiessler/Personal_AI_Infrastructure,
+`LifeOS/install/skills/Tldraw/` at commit `be9e8ef` (2026-08-14), imported
+2026-10-01 to `skills/creative/visual-design/tldraw/` as a nested skill.
+
+`Tools/Tldr.ts` and `References/` are byte-identical to upstream and keep its
+directory casing so the tool's `../References/SchemaSnapshot.json` lookup and
+future diffs stay trivial. The schema snapshot is pinned to tldraw 5.2.5.
+
+Local edits since import:
+
+- `SKILL.md` rewritten: PAI voice notification, `LIFEOS` customization lookup
+  and execution log removed; routing to PAI's `Art`/`Webdesign`/`Remotion`
+  removed (routing lives in `visual-design`); tool path resolved from the
+  skill's own directory instead of `~/.claude/skills/Tldraw`.
+- `Workflows/*.md`: voice notification removed, tool path made relative,
+  default output location is the current project.

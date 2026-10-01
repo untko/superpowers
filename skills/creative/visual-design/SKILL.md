@@ -1,6 +1,6 @@
 ---
 name: visual-design
-description: "Create diagram artifacts: architecture diagrams (HTML/SVG), hand-drawn Excalidraw diagrams, and Mermaid diagrams. Frontend UI and page design belongs to the impeccable skill."
+description: "Create diagram artifacts: architecture diagrams (HTML/SVG), hand-drawn Excalidraw diagrams, Mermaid diagrams, and tldraw canvases. Frontend UI and page design belongs to the impeccable skill."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -20,6 +20,11 @@ Create diagrams in these formats. Pick the section that matches your task. For l
 | Dark-themed HTML/SVG architecture diagram | System architecture, cloud infra, microservice maps | → [Architecture Diagrams](#1-architecture-diagrams) |
 | Hand-drawn Excalidraw JSON diagram | Whiteboard-style sketches, flowcharts, quick architecture | → [Excalidraw Diagrams](#2-excalidraw-diagrams) |
 | Mermaid diagram (SVG/PNG/ASCII) via agentic-mermaid | Flowcharts, sequence diagrams, state machines, Gantt, mindmaps, architecture-beta | → Read [Mermaid Graph](mermaid-graph/SKILL.md) |
+| tldraw `.tldr` canvas, written or read back | The request names tldraw, a `.tldr` file, a canvas or whiteboard, or asks to read, cluster, or organize an existing canvas | → Read [tldraw](tldraw/SKILL.md) |
+
+For a one-off hand-drawn sketch with no canvas to read back, default to
+Excalidraw; tldraw is for `.tldr` files and for round-tripping a canvas the
+user keeps editing.
 
 If a more specialized skill exists for the subject (e.g., a specific diagram type), prefer that. These are general-purpose visual design fallbacks.
 
@@ -152,3 +157,11 @@ Array order = z-order (first = back, last = front). Emit: background zones → s
 When the request involves creating, rendering, validating, or editing a Mermaid
 diagram, read and follow the nested [Mermaid Graph](mermaid-graph/SKILL.md)
 skill. It is the authoritative Mermaid workflow for this visual-design family.
+
+---
+
+## 4. tldraw Canvases
+
+When the request involves a tldraw `.tldr` file, a canvas or whiteboard, or
+reading and organizing an existing canvas, read and follow the nested
+[tldraw](tldraw/SKILL.md) skill.
