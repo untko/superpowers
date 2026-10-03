@@ -26,6 +26,11 @@ Local edits since import:
 - `to-spec`: one checkpoint (draft review, seams included) before publishing;
   Open Questions and Acceptance Criteria sections; one story per distinct
   behaviour; `needs-info` label while questions stay open.
+- 2026-10-04, ideas (not text) adapted from github/spec-kit (MIT):
+  `to-spec` step 4 tests the requirements before the draft review
+  (`speckit-checklist`); `to-tickets` step 4 checks criterion coverage and
+  carries `AC-n` numbers into tickets (`speckit-analyze`); `review-since`
+  step 6 offers add-only tickets for Spec-axis gaps (`speckit-converge`).
 
 ## danielmiessler/Personal_AI_Infrastructure — Tldraw 1.0.1 (MIT, Copyright (c) 2025-2026 Daniel Miessler)
 

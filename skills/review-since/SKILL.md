@@ -67,7 +67,7 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 - The diff command and commit list.
 - The path or fetched contents of the spec.
-- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding. Under 400 words."
+- The brief: "Report: (a) requirements the spec asked for that are missing or partial; (b) behaviour in the diff that wasn't asked for (scope creep); (c) requirements that look implemented but where the implementation looks wrong. Quote the spec line for each finding, with its criterion number when it has one. Under 400 words."
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
@@ -76,6 +76,14 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes: that's the reranking the separation exists to prevent.
+
+### 6. Offer gap tickets
+
+If the Spec axis reported missing, partial, or wrong requirements, offer to turn them into follow-up tickets. Create nothing until the user agrees.
+
+On a yes, draft one ticket per gap in `/to-tickets`' template. Quote the spec line and its criterion number in the ticket, and list as blockers any open tickets that the gap depends on. Show the drafts, then publish only the ones the user approves.
+
+Only add tickets. Never edit, reopen, or close existing ones, and never ticket scope creep: whether to keep unrequested behaviour is the user's call, not a gap.
 
 ## Why two axes
 

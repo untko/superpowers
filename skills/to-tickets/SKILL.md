@@ -39,13 +39,29 @@ Give each ticket its **blocking edges**: the other tickets that must complete be
 
 **Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify ticket; green is promised only there.
 
-### 4. Quiz the user
+### 4. Check coverage
+
+Before showing the breakdown, map it against the source. The units are the spec's numbered acceptance criteria; when the source is a plan or conversation with none, list the distinct behaviours it asks for and use those. Check for:
+
+- **Uncovered**: a criterion no ticket delivers.
+- **Untraced**: a ticket that delivers no criterion. Prefactor, expand, and contract tickets are exempt; anything else is scope creep.
+- **Cycles**: blocking edges that loop, so no frontier exists.
+- **Drift**: a ticket that uses a domain term differently from the source or glossary.
+
+Fix each one in the breakdown. When the source itself is at fault (two criteria contradict, one is unbuildable), don't patch around it: tell the user and leave the source unchanged.
+
+Carry criterion numbers into each ticket's acceptance criteria (for example `AC-3: …`), so a later review can trace code back to the spec.
+
+### 5. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Covers**: the criterion numbers it delivers
+
+Below the list, name any criterion you could not cover and why.
 
 Ask the user:
 
@@ -55,7 +71,7 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the tickets to the configured tracker
+### 6. Publish the tickets to the configured tracker
 
 Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock-skills` configured; the tickets are the same either way, only the shape of the blocking edges changes:
 

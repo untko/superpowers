@@ -4,7 +4,7 @@ description: "Turn the current conversation into a spec and publish it to the pr
 disable-model-invocation: true
 ---
 
-This skill synthesizes the current conversation and codebase understanding into a spec. The conversation is the interview; this skill writes it down. There is exactly one checkpoint with the user: the draft review in step 4.
+This skill synthesizes the current conversation and codebase understanding into a spec. The conversation is the interview; this skill writes it down. There is exactly one checkpoint with the user: the draft review in step 5.
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
@@ -16,9 +16,18 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 3. Draft the spec using the template below. Every decision in it traces to something said in the conversation or found in the code. Anything the conversation left unsettled goes under **Open Questions**, stated as a question with the options you can see; it never becomes a guessed decision elsewhere in the spec.
 
-4. Show the user the full draft, with the seams called out, and ask for corrections. Revise until they approve. Done when the user has approved this exact text.
+4. Test the draft's requirements before the user sees it. This checks the writing, not the code. Ask of the draft:
+   - Is every acceptance criterion an observable result, checkable at a seam from step 2?
+   - Does every user story have at least one criterion, including its failure or edge case?
+   - Is every vague qualifier ("fast", "prominent", "secure", "large") pinned to a number or a concrete behaviour?
+   - Do any two criteria, or a criterion and an ADR, contradict each other?
+   - Is each domain term used in one sense, matching the glossary?
 
-5. Publish the approved spec to the project issue tracker with the `enhancement` category role and a state role set by its Open Questions section:
+   Fix each failure from what the conversation or code settles. If they don't settle it, turn it into an Open Question; never invent a number to pass the check.
+
+5. Show the user the full draft, with the seams called out, and ask for corrections. Revise until they approve. Done when the user has approved this exact text.
+
+6. Publish the approved spec to the project issue tracker with the `enhancement` category role and a state role set by its Open Questions section:
    - empty: `ready-for-agent`
    - non-empty: `needs-info`, and tell the user which questions block it
 
